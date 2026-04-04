@@ -22,6 +22,22 @@ fallada. La logica electoral resideix integrement dins un contracte intel·ligen
 immutable desplegat a la xarxa Algorand, i cap servidor intermediari te acces a
 les claus privades dels votants.
 
+## Pantalles del mockup
+
+Disseny complet de les 7 pantalles de l'aplicacio (mode fosc, multiidioma EN/ES/CA):
+
+| Landing | Dashboard | Elections |
+|---------|-----------|-----------|
+| ![Landing](docs/img/mockup-landing.png) | ![Dashboard](docs/img/mockup-dashboard.png) | ![Elections](docs/img/mockup-elections.png) |
+
+| Proposals | Voting (Schulze) | Results |
+|-----------|------------------|---------|
+| ![Proposals](docs/img/mockup-proposals.png) | ![Voting](docs/img/mockup-voting.png) | ![Results](docs/img/mockup-results.png) |
+
+| Verification |
+|--------------|
+| ![Verification](docs/img/mockup-verification.png) |
+
 ## Arquitectura
 
 <p align="center">

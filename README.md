@@ -131,6 +131,7 @@ implementacio.
 ## Documentacio
 
 - [Wiki del projecte](https://github.com/tcontesti/blockchain-voting/wiki)
+- [Sprint Board (Kanban)](https://github.com/users/tcontesti/projects/3)
 - [Landing page](https://tcontesti.github.io/blockchain-voting/)
 - [Backlog](https://github.com/tcontesti/blockchain-voting/issues)
 - [Milestones](https://github.com/tcontesti/blockchain-voting/milestones)

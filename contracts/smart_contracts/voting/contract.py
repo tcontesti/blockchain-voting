@@ -1,333 +1,247 @@
 """
 Modul: contract.py (Router principal)
-Descripcio: Smart Contract principal del sistema de votacio.
+Descripcio: Smart Contract principal del sistema de votacio electronica.
             Implementa el patro Router (DT-01) via ARC4Contract.
             En algopy, l'enrutament es automatic: cada @abimethod
             genera una entrada al router ABI compilat a TEAL.
             Integra verificador (DT-02), propostes (DT-03),
             votacio (DT-04) i generador d'eleccions.
 Estat: IMPLEMENTAT (votacio pluralitat) / PARCIAL (Schulze pendent)
-Depend: constants.py (prefixos BoxMap, llindars)
+Depend: constants.py (prefixos BoxMap)
 Referencia: Decisions tecniques DT-01 a DT-05, seccio 7.3.2 document d'abast
-
-NOTA IMPORTANT SOBRE LA TECNOLOGIA:
-  L'arquitectura original especificava PyTeal amb Cond() manual.
-  La implementacio usa algopy (Algorand Python / Puya compiler),
-  que es la tecnologia RECOMANADA per Algorand (PyTeal es legacy).
-  El compilador Puya genera TEAL optimitzat amb routing ABI automatic.
-  Totes les decisions tecniques (DT-01 a DT-05) es compleixen igualment.
+Autor: Marc Link (@linkcla)
 """
 
-from algopy import ARC4Contract, arc4, BoxMap, Txn
+from algopy import ARC4Contract, arc4, BoxMap, Txn, UInt64, urange
 from algopy.arc4 import abimethod
-
 from .constants import (
     P_CENSO_DIR, P_CENSO_TOT,
     P_PROP_CAND, P_PROP_VOT, P_PROP_REG,
+    P_PROP_CENSO_CARG, P_PROP_CRADOR,
     P_ELEC_CAND, P_ELEC_VOT, P_ELEC_REG,
-    CENSO_GENERICO, THRESHOLD_DIVISOR,
+    CENSO_GENERICO
 )
 
 
-class SistemaVotacio(ARC4Contract):
-    """
-    Smart Contract de votacio electronica descentralitzada.
-
-    Moduls logics (implementats com a grups de metodes):
-    - Cens electoral: generar_cens_global
-    - Propostes: crear_proposta, votar_proposta
-    - Generador d'eleccions: _generar_eleccio (intern)
-    - Votacio: votar_eleccio, consultar_resultats
-    - Verificadors: _verificar_* i _validar_* (interns)
-    """
+class SistemaVotacion(ARC4Contract):
 
     def __init__(self) -> None:
         # ==========================================================
-        # 1. CENS ELECTORAL (DT-03: Box Storage)
+        # 1. CENSO ELECTORAL
         # ==========================================================
-        # Clau: (nom_eleccio, adreca_votant) -> True/False
-        self.cens_adreces = BoxMap(
-            arc4.Tuple[arc4.String, arc4.Address],
-            arc4.Bool,
-            key_prefix=P_CENSO_DIR,
-        )
-        # Clau: nom_eleccio -> total persones al cens
-        self.cens_totals = BoxMap(
-            arc4.String,
-            arc4.UInt64,
-            key_prefix=P_CENSO_TOT,
-        )
+        # Clave: (Eleccion, Direccion). Valor: True
+        self.censo_direcciones = BoxMap(arc4.Tuple[arc4.String, arc4.Address], arc4.Bool, key_prefix=P_CENSO_DIR)
+
+        # Clave: Eleccion. Valor: Total de personas en ese censo (Para calcular el threshold)
+        self.censo_totales = BoxMap(arc4.String, arc4.UInt64, key_prefix=P_CENSO_TOT)
 
         # ==========================================================
-        # 2. PROPOSTES D'ELECCIONS (DT-03: Box Storage)
+        # 2. ESTADO DE PROPUESTAS DE ELECCIONES
         # ==========================================================
-        # Candidats d'una proposta
-        self.propostes_candidats = BoxMap(
-            arc4.String,
-            arc4.DynamicArray[arc4.String],
-            key_prefix=P_PROP_CAND,
-        )
-        # Total de vots a favor de la proposta
-        self.propostes_vots = BoxMap(
-            arc4.String,
-            arc4.UInt64,
-            key_prefix=P_PROP_VOT,
-        )
-        # Registre de qui ha votat cada proposta
-        self.propostes_registres = BoxMap(
-            arc4.Tuple[arc4.String, arc4.Address],
-            arc4.Bool,
-            key_prefix=P_PROP_REG,
-        )
+        self.propuestas_candidatos = BoxMap(arc4.String, arc4.DynamicArray[arc4.String], key_prefix=P_PROP_CAND)
+        self.propuestas_votos = BoxMap(arc4.String, arc4.UInt64, key_prefix=P_PROP_VOT)
+        self.propuestas_registros_votos = BoxMap(arc4.Tuple[arc4.String, arc4.Address], arc4.Bool, key_prefix=P_PROP_REG)
+        self.propuestas_censo_cargado = BoxMap(arc4.String, arc4.UInt64, key_prefix=P_PROP_CENSO_CARG)
+        self.propuestas_creador = BoxMap(arc4.String, arc4.Address, key_prefix=P_PROP_CRADOR)
 
         # ==========================================================
-        # 3. ELECCIONS ACTIVES (DT-03: Box Storage)
+        # 3. ESTADO DE ELECCIONES ACTIVAS
         # ==========================================================
-        # Candidats d'una eleccio
-        self.eleccions_candidats = BoxMap(
-            arc4.String,
-            arc4.DynamicArray[arc4.String],
-            key_prefix=P_ELEC_CAND,
-        )
-        # Vots per candidat: (nom_eleccio, candidat) -> total
-        self.eleccions_vots = BoxMap(
-            arc4.Tuple[arc4.String, arc4.String],
-            arc4.UInt64,
-            key_prefix=P_ELEC_VOT,
-        )
-        # Registre de qui ha votat cada eleccio
-        self.eleccions_registres = BoxMap(
-            arc4.Tuple[arc4.String, arc4.Address],
-            arc4.Bool,
-            key_prefix=P_ELEC_REG,
-        )
+        self.elecciones_candidatos = BoxMap(arc4.String, arc4.DynamicArray[arc4.String], key_prefix=P_ELEC_CAND)
+        self.elecciones_votos = BoxMap(arc4.String, arc4.DynamicArray[arc4.UInt64], key_prefix=P_ELEC_VOT)
+        self.elecciones_registros_votos = BoxMap(arc4.Tuple[arc4.String, arc4.Address], arc4.Bool, key_prefix=P_ELEC_REG)
 
     # ==========================================================
-    # MODUL: CENS ELECTORAL
+    # LOGICA DE CARGA DE CENSO GLOBAL
     # ==========================================================
+    # NOTA: SOLO SE PUEDE LLAMAR CON UN MAXIMO DE 7 DIRECCIONES POR TRANSACCION.
+    @abimethod
+    def cargar_censo_global(self, direcciones: arc4.DynamicArray[arc4.Address]) -> None:
+        """Carga el censo global por lotes."""
+        # En un futuro esta funcion estara restringida a una autoridad que se encargue de controlar el censo.
+        # Actualmente cualquiera la puede llamar.
+
+        # Investigar los *Transaction Groups* para agrupar 16 transacciones en un unico bloque. Asi podemos cargar 112 usuarios de golpe.
+        assert direcciones.length > 0, "[ERROR] Ha de enviar al menos una direccion para incrementar el censo."
+        assert direcciones.length <= 7, "[ERROR] Solo se pueden enviar un maximo de 7 por limitaciones de atomicidad. Si necesita agregar mas, llame a esta funcion varias veces."
+
+        for direccion in direcciones:
+            self._verificar_inexistencia_usuario_censo(arc4.String(CENSO_GENERICO), direccion)
+            clave_censo = arc4.Tuple((arc4.String(CENSO_GENERICO), direccion))
+            self.censo_direcciones[clave_censo] = arc4.Bool(True)
+
+        total_actual = self.censo_totales.get(arc4.String(CENSO_GENERICO), default=arc4.UInt64(0))
+        self.censo_totales[arc4.String(CENSO_GENERICO)] = arc4.UInt64(total_actual.native + direcciones.length)
+
+
+    # ==========================================================
+    # LOGICA DE PROPUESTAS
+    # ==========================================================
+    @abimethod
+    def crear_propuesta(self, nombre_propuesta: arc4.String, candidatos: arc4.DynamicArray[arc4.String], total_censo: arc4.UInt64) -> None:
+        """Inicializa la propuesta y declara el tamano final del censo."""
+        self._verificar_censo(arc4.String(CENSO_GENERICO), arc4.Address(Txn.sender))
+        self._validar_propuesta(nombre_propuesta, existente=arc4.Bool(False))
+
+        assert candidatos.length > 0, "[ERROR] Ha de existir al menos un candidato en la propuesta."
+        assert total_censo.native > 0, "[ERROR] El censo total declarado no puede ser 0."
+
+        self.propuestas_votos[nombre_propuesta] = arc4.UInt64(0)
+        self.propuestas_candidatos[nombre_propuesta] = candidatos.copy()
+
+        # Guardamos el total que esperamos cargar
+        self.censo_totales[nombre_propuesta] = total_censo
+
+        # Inicializamos el contador de cargados a 0
+        self.propuestas_censo_cargado[nombre_propuesta] = arc4.UInt64(0)
+
+        # Guardar quien ha creado la propuesta para despues permitir que solo el sea quien pueda agregar el censo de la propuesta.
+        self.propuestas_creador[nombre_propuesta] = arc4.Address(Txn.sender)
 
     @abimethod
-    def generar_cens_global(
-        self,
-        adreces: arc4.DynamicArray[arc4.Address],
-    ) -> None:
-        """
-        Afegeix adreces al cens generic (CENSO_GENERAL).
-        Maxim 7 adreces per transaccio (restriccio AVM).
+    def cargar_censo_propuesta(self, nombre_propuesta: arc4.String, censo_lote: arc4.DynamicArray[arc4.Address]) -> None:
+        """Carga el censo de la propuesta. Se pueden enviar lotes de como maximo 4 direcciones por transaccion."""
+        self._validar_propuesta(nombre_propuesta, existente=arc4.Bool(True))
+        self._validar_creador_propuesta(nombre_propuesta, arc4.Address(Txn.sender))
 
-        TODO: Restringir a una autoritat (creador del SC).
-        Ara qualsevol pot cridar-ho, cosa que no es segura en produccio.
-        """
-        for adreca in adreces:
-            self._verificar_inexistencia_cens(
-                arc4.String(CENSO_GENERICO), adreca,
-            )
-            clau = arc4.Tuple((arc4.String(CENSO_GENERICO), adreca))
-            self.cens_adreces[clau] = arc4.Bool(True)
+        assert censo_lote.length > 0, "[ERROR] Ha de enviar al menos una direccion para incrementar el censo."
+        assert censo_lote.length <= 4, "[ERROR] Solo se pueden enviar un maximo de 4 por limitaciones de atomicidad. Si necesita agregar mas, llame a esta funcion varias veces."
 
-        total_actual = self.cens_totals.get(
-            arc4.String(CENSO_GENERICO), default=arc4.UInt64(0),
-        )
-        self.cens_totals[arc4.String(CENSO_GENERICO)] = arc4.UInt64(
-            total_actual.native + adreces.length,
-        )
+        cargados_actualmente = self.propuestas_censo_cargado[nombre_propuesta]
+        total_esperado = self.censo_totales[nombre_propuesta]
+        self._validar_limite_censo_propuesta(cargados_actualmente, total_esperado, censo_lote.length)
+
+        for direccion in censo_lote:
+            self._verificar_inexistencia_usuario_censo(nombre_propuesta, direccion)
+
+            clave_censo = arc4.Tuple((nombre_propuesta, direccion))
+            self.censo_direcciones[clave_censo] = arc4.Bool(True)
+
+        # Actualizamos el contador de direcciones cargadas
+        self.propuestas_censo_cargado[nombre_propuesta] = arc4.UInt64(cargados_actualmente.native + censo_lote.length)
 
     # ==========================================================
-    # MODUL: PROPOSTES (DT-03)
+    # LOGICA DE VOTAR PROPUESTA
     # ==========================================================
-
     @abimethod
-    def crear_proposta(
-        self,
-        nom_proposta: arc4.String,
-        candidats: arc4.DynamicArray[arc4.String],
-        cens: arc4.DynamicArray[arc4.Address],
-    ) -> None:
-        """
-        Crea una proposta d'eleccio amb candidats i cens propi.
-        Requereix que el creador pertanyi al cens generic.
-        """
-        self._verificar_cens(
-            arc4.String(CENSO_GENERICO), arc4.Address(Txn.sender),
-        )
-        self._validar_proposta(nom_proposta, ha_d_existir=False)
-        assert cens.length > 0, \
-            "[ERROR] Ha d'existir almenys una adreca al cens"
+    def votar_propuesta(self, nombre_propuesta: arc4.String) -> None:
+        """Registra un voto sobre una propuesta."""
+        self._validar_propuesta(nombre_propuesta, existente=arc4.Bool(True))
 
-        self.propostes_vots[nom_proposta] = arc4.UInt64(0)
-        self.propostes_candidats[nom_proposta] = candidats.copy()
+        direccion_sender = arc4.Address(Txn.sender)
+        self._verificar_censo(nombre_propuesta, direccion_sender)
+        self._validar_propuesta_activa(nombre_propuesta)
+        self._validar_no_doble_voto_propuestas(nombre_propuesta, direccion_sender)
 
-        # Crear cens especific per a la proposta/eleccio
-        self.cens_totals[nom_proposta] = arc4.UInt64(cens.length)
-        for adreca in cens:
-            clau = arc4.Tuple((nom_proposta, adreca))
-            self.cens_adreces[clau] = arc4.Bool(True)
+        # Registrar el voto
+        clave_registro = arc4.Tuple((nombre_propuesta, direccion_sender))
+        self.propuestas_registros_votos[clave_registro] = arc4.Bool(True)
+        self.propuestas_votos[nombre_propuesta] = arc4.UInt64(self.propuestas_votos[nombre_propuesta].native + 1)
 
-    @abimethod
-    def votar_proposta(self, nom_proposta: arc4.String) -> None:
-        """
-        Vota a favor d'una proposta.
-        Si s'assoleix el llindar, genera l'eleccio automaticament.
-        """
-        self._validar_proposta(nom_proposta, ha_d_existir=True)
-        adreca_votant = arc4.Address(Txn.sender)
+        self._generar_eleccion(nombre_propuesta)
 
-        self._verificar_cens(nom_proposta, adreca_votant)
-        self._validar_proposta_activa(nom_proposta)
-        self._validar_no_doble_vot_proposta(nom_proposta, adreca_votant)
-
-        # Registrar vot (DT-04: atomic)
-        clau_registre = arc4.Tuple((nom_proposta, adreca_votant))
-        self.propostes_registres[clau_registre] = arc4.Bool(True)
-
-        self.propostes_vots[nom_proposta] = arc4.UInt64(
-            self.propostes_vots[nom_proposta].native + 1,
-        )
-
-        # Intentar generar l'eleccio si s'assoleix el llindar
-        self._generar_eleccio(nom_proposta)
 
     # ==========================================================
-    # MODUL: GENERADOR D'ELECCIONS (DT-04)
+    # GENERADOR DE ELECCIONES
     # ==========================================================
+    def _generar_eleccion(self, nombre_propuesta: arc4.String) -> None:
+        """Crea la eleccion cuando la propuesta alcanza el umbral."""
+        # Calculamos la mitad del censo como umbral (arredondeado hacia arriba)
+        total_censo = self.censo_totales[nombre_propuesta].native
+        threshold_propuesta = (total_censo // 2) + (total_censo % 2)
+        votos_propuesta = self.propuestas_votos[nombre_propuesta].native
 
-    def _generar_eleccio(self, nom_proposta: arc4.String) -> None:
-        """
-        Genera una eleccio automaticament quan la proposta assoleix
-        el llindar de vots (50% del cens de la proposta).
-        Els candidats es copien de la proposta.
-        """
-        llindar = (
-            self.cens_totals[nom_proposta].native // THRESHOLD_DIVISOR
-        )
-        vots = self.propostes_vots[nom_proposta].native
-
-        if vots < llindar:
+        # Si no se llega al umbral, no se genera la eleccion
+        if votos_propuesta < threshold_propuesta:
             return
 
-        # Copiar candidats de la proposta a l'eleccio
-        candidats = self.propostes_candidats[nom_proposta].copy()
-        self.eleccions_candidats[nom_proposta] = candidats.copy()
+        candidatos = self.propuestas_candidatos[nombre_propuesta].copy()
+        self.elecciones_candidatos[nombre_propuesta] = candidatos.copy()
 
-        # Inicialitzar comptadors de vots a 0 per a cada candidat
-        for candidat in candidats:
-            clau_vot = arc4.Tuple((nom_proposta, candidat))
-            self.eleccions_vots[clau_vot] = arc4.UInt64(0)
+        votos_iniciales = arc4.DynamicArray[arc4.UInt64]()
+        for i in urange(candidatos.length):
+            votos_iniciales.append(arc4.UInt64(0))
+
+        self.elecciones_votos[nombre_propuesta] = votos_iniciales.copy()
+
 
     # ==========================================================
-    # MODUL: VOTACIO (DT-04: operacions atomiques)
+    # LOGICA DE VOTACION
     # ==========================================================
-
     @abimethod
-    def votar_eleccio(
-        self,
-        nom_eleccio: arc4.String,
-        candidat: arc4.String,
-    ) -> None:
-        """
-        Emet un vot per un candidat en una eleccio activa.
-        Votacio per pluralitat simple (un candidat per votant).
+    def votar_eleccion(self, nombre_eleccion: arc4.String, candidato: arc4.String) -> None:
+        """Registra un voto en una eleccion activa."""
+        direccion_sender = arc4.Address(Txn.sender)
+        self._verificar_censo(nombre_eleccion, direccion_sender)
 
-        TODO: Implementar votar_schulze() per a preferencies ordenades.
-        """
-        self._validar_existencia_eleccio(nom_eleccio)
-        self._validar_candidat_en_eleccio(nom_eleccio, candidat)
+        self._validar_existencia_votacion(nombre_eleccion)
+        indice_candidato = self._validar_candidato_en_eleccion(nombre_eleccion, candidato)
 
-        adreca_votant = arc4.Address(Txn.sender)
-        self._verificar_cens(nom_eleccio, adreca_votant)
-        self._validar_no_doble_vot_eleccio(nom_eleccio, adreca_votant)
+        self._validar_no_doble_voto_elecciones(nombre_eleccion, direccion_sender)
 
-        # Registrar que ha votat (DT-02: prevencio doble vot)
-        clau_registre = arc4.Tuple((nom_eleccio, adreca_votant))
-        self.eleccions_registres[clau_registre] = arc4.Bool(True)
+        # Guardamos que ha votado
+        clave_registro = arc4.Tuple((nombre_eleccion, direccion_sender))
+        self.elecciones_registros_votos[clave_registro] = arc4.Bool(True)
 
-        # Incrementar vots del candidat (DT-04: atomic)
-        clau_vot = arc4.Tuple((nom_eleccio, candidat))
-        self.eleccions_vots[clau_vot] = arc4.UInt64(
-            self.eleccions_vots[clau_vot].native + 1,
-        )
-
-    @abimethod(readonly=True)
-    def consultar_resultats(
-        self,
-        nom_eleccio: arc4.String,
-        candidat: arc4.String,
-    ) -> arc4.UInt64:
-        """
-        Consulta el nombre de vots d'un candidat en una eleccio.
-        Metode readonly: no modifica l'estat del SC.
-        """
-        self._validar_existencia_eleccio(nom_eleccio)
-        self._validar_candidat_en_eleccio(nom_eleccio, candidat)
-
-        clau_vot = arc4.Tuple((nom_eleccio, candidat))
-        return self.eleccions_vots[clau_vot]
+        votos = self.elecciones_votos[nombre_eleccion].copy()
+        votos[indice_candidato.native] = arc4.UInt64(votos[indice_candidato.native].native + 1)
+        self.elecciones_votos[nombre_eleccion] = votos.copy()
 
     # ==========================================================
-    # MODUL: VERIFICADORS (DT-02: Guard desacoblat)
-    # Metodes interns de validacio. Si fallen, la transaccio
-    # es reverteix completament (comportament atomic de l'AVM).
+    # VERIFICADORES
     # ==========================================================
+    def _verificar_censo(self, censo: arc4.String, votante: arc4.Address) -> None:
+        """Comprueba que la direccion pertenece al censo indicado."""
+        clave = arc4.Tuple((censo, votante))
+        assert clave in self.censo_direcciones, "[ERROR] No estas en el censo para realizar esta accion."
 
-    def _verificar_cens(
-        self, cens: arc4.String, votant: arc4.Address,
-    ) -> None:
-        """Verifica pertinenca al cens. O(1) via BoxMap."""
-        clau = arc4.Tuple((cens, votant))
-        assert clau in self.cens_adreces, \
-            "[ERROR] No estas al cens per realitzar aquesta accio."
+    def _verificar_inexistencia_usuario_censo(self, censo: arc4.String, votante: arc4.Address) -> None:
+        """Comprueba que la direccion no esta ya registrada en el censo."""
+        clave = arc4.Tuple((censo, votante))
+        assert clave not in self.censo_direcciones, "[ERROR] La direccion ya esta en el censo para esta accion."
 
-    def _verificar_inexistencia_cens(
-        self, cens: arc4.String, votant: arc4.Address,
-    ) -> None:
-        """Verifica que l'adreca NO pertany al cens."""
-        clau = arc4.Tuple((cens, votant))
-        assert clau not in self.cens_adreces, \
-            "[ERROR] L'adreca ja es al cens per a aquesta accio."
-
-    def _validar_proposta(
-        self, proposta: arc4.String, *, ha_d_existir: bool,
-    ) -> None:
-        """Valida existencia o inexistencia d'una proposta."""
-        if ha_d_existir:
-            assert proposta in self.propostes_vots, \
-                "[ERROR] La proposta d'eleccions no existeix."
+    def _validar_propuesta(self, propuesta: arc4.String, existente: arc4.Bool) -> None:
+        """Valida si la propuesta existe o no segun el contexto del atributo 'existente'."""
+        if existente.native:
+            assert propuesta in self.propuestas_votos, "[ERROR] La propuesta de elecciones no existe."
         else:
-            assert proposta not in self.propostes_vots, \
-                "[ERROR] La proposta d'eleccions ja existeix."
+            assert propuesta not in self.propuestas_votos, "[ERROR] La propuesta de elecciones ya existe."
 
-    def _validar_no_doble_vot_proposta(
-        self, proposta: arc4.String, votant: arc4.Address,
-    ) -> None:
-        """Prevencio de doble vot en propostes. O(1)."""
-        clau = arc4.Tuple((proposta, votant))
-        assert clau not in self.propostes_registres, \
-            "[ERROR] Aquesta adreca ja ha votat en aquesta proposta."
+    def _validar_propuesta_activa(self, propuesta: arc4.String) -> None:
+        """Comprueba que la propuesta ya esta configurada y que no ha pasado a ser una eleccion."""
+        assert self.propuestas_censo_cargado[propuesta].native == self.censo_totales[propuesta].native, "[ERROR] La propuesta aun se esta configurando (censo incompleto)."
+        assert propuesta not in self.elecciones_candidatos, "[ERROR] La propuesta ya ha pasado a ser una eleccion."
 
-    def _validar_proposta_activa(self, proposta: arc4.String) -> None:
-        """Verifica que la proposta no s'ha convertit en eleccio."""
-        assert proposta not in self.eleccions_candidats, \
-            "[ERROR] La proposta ja ha passat a ser una eleccio."
+    def _validar_creador_propuesta(self, propuesta: arc4.String, creador: arc4.Address) -> None:
+        """Comprueba que quien llama es el creador de la propuesta."""
+        assert self.propuestas_creador[propuesta] == creador, "[ERROR] Solo el creador de la propuesta puede realizar esta accion."
 
-    def _validar_existencia_eleccio(
-        self, nom_eleccio: arc4.String,
-    ) -> None:
-        """Verifica que l'eleccio existeix."""
-        assert nom_eleccio in self.eleccions_candidats, \
-            "[ERROR] L'eleccio no existeix."
+    def _validar_limite_censo_propuesta(self, cargados_actualmente: arc4.UInt64, total_esperado: arc4.UInt64, longitud_lote: UInt64) -> None:
+        """Evita cargar mas direcciones que las declaradas para la propuesta."""
+        assert cargados_actualmente.native + longitud_lote <= total_esperado.native, "[ERROR] Superas el limite del censo declarado para esta propuesta."
 
-    def _validar_candidat_en_eleccio(
-        self, nom_eleccio: arc4.String, candidat: arc4.String,
-    ) -> None:
-        """Verifica que el candidat pertany a l'eleccio. O(1)."""
-        clau = arc4.Tuple((nom_eleccio, candidat))
-        assert clau in self.eleccions_vots, \
-            "[ERROR] El candidat no pertany a aquesta eleccio."
+    def _validar_no_doble_voto_propuestas(self, propuesta: arc4.String, votante: arc4.Address) -> None:
+        """Evita que una direccion vote dos veces en la misma propuesta."""
+        clave = arc4.Tuple((propuesta, votante))
+        assert clave not in self.propuestas_registros_votos, "[ERROR] Esta direccion ya ha votado."
 
-    def _validar_no_doble_vot_eleccio(
-        self, nom_eleccio: arc4.String, votant: arc4.Address,
-    ) -> None:
-        """Prevencio de doble vot en eleccions. O(1)."""
-        clau = arc4.Tuple((nom_eleccio, votant))
-        assert clau not in self.eleccions_registres, \
-            "[ERROR] Aquesta adreca ja ha votat en aquesta eleccio."
+    def _validar_existencia_votacion(self, nombre_eleccion: arc4.String) -> None:
+        """Comprueba que la eleccion existe."""
+        assert nombre_eleccion in self.elecciones_candidatos, "[ERROR] La eleccion no existe."
+
+    def _validar_candidato_en_eleccion(self, nombre_eleccion: arc4.String, candidato: arc4.String) -> arc4.UInt64:
+        """Valida que el candidato esta en la eleccion y retorna su indice."""
+        candidatos = self.elecciones_candidatos[nombre_eleccion].copy()
+
+        indice_candidato = arc4.UInt64(0)
+        for c in candidatos:
+            if c == candidato:
+                return indice_candidato
+            indice_candidato = arc4.UInt64(indice_candidato.native + 1)
+
+        assert False, "[ERROR] El candidato no pertenece a esta eleccion."
+
+    def _validar_no_doble_voto_elecciones(self, propuesta: arc4.String, votante: arc4.Address) -> None:
+        """Evita que una direccion vote dos veces en la misma eleccion."""
+        clave = arc4.Tuple((propuesta, votante))
+        assert clave not in self.elecciones_registros_votos, "[ERROR] Esta direccion ya ha votado en esta eleccion."

@@ -11,7 +11,7 @@ import pytest
 
 
 class TestGeneradorEleccions:
-    """Tests per al metode intern _generar_eleccio()."""
+    """Tests per al metode intern _generar_eleccion()."""
 
     @pytest.mark.skip(reason="Pendent: requereix localnet i artifacts compilats")
     def test_eleccio_generada_te_mateixos_candidats(self, app_client):
@@ -22,10 +22,11 @@ class TestGeneradorEleccions:
         pass
 
     @pytest.mark.skip(reason="Pendent: requereix localnet i artifacts compilats")
-    def test_eleccio_generada_vots_a_zero(self, app_client):
+    def test_eleccio_generada_vots_array_zeros(self, app_client):
         """
-        Verifica que tots els candidats de l'eleccio generada
-        comencen amb 0 vots.
+        Verifica que el DynamicArray de vots de l'eleccio generada
+        conte tots zeros, amb la mateixa longitud que el nombre
+        de candidats.
         """
         pass
 
@@ -33,14 +34,24 @@ class TestGeneradorEleccions:
     def test_proposta_tancada_despres_de_generacio(self, app_client):
         """
         Verifica que un cop generada l'eleccio, no es pot votar
-        mes la proposta (validar_proposta_activa falla).
+        mes la proposta (validar_propuesta_activa falla).
         """
         pass
 
     @pytest.mark.skip(reason="Pendent: requereix localnet i artifacts compilats")
-    def test_llindar_50_per_cent(self, app_client):
+    def test_llindar_arrodonit_amunt(self, app_client):
         """
-        Verifica que el llindar es exactament el 50% del cens.
-        Amb cens=10, calen 5 vots per generar l'eleccio.
+        Verifica que el llindar es ceil(50% cens).
+        Amb cens=5: llindar=3 (no 2).
+        Amb cens=4: llindar=2.
+        Amb cens=3: llindar=2 (no 1).
+        """
+        pass
+
+    @pytest.mark.skip(reason="Pendent: requereix localnet i artifacts compilats")
+    def test_cens_proposta_compartit_amb_eleccio(self, app_client):
+        """
+        Verifica que el cens de l'eleccio generada es el mateix
+        que el de la proposta (mateixa clau al BoxMap).
         """
         pass

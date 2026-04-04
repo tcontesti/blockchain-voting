@@ -1,8 +1,8 @@
 """
 Tests: test_votacio.py
 Descripcio: Tests unitaris per a la logica de votacio en eleccions.
-            Cobreix votacio per pluralitat, consulta de resultats
-            i prevencio de vots invalids.
+            Cobreix votacio per pluralitat (array indexat per candidat),
+            consulta de resultats i prevencio de vots invalids.
 Estat: PLACEHOLDER (tests definits, pendents d'execucio)
 Depend: conftest.py, artifacts compilats
 Referencia: HU-03 (Emetre vot), HU-05 (Prevencio doble vot)
@@ -12,21 +12,25 @@ import pytest
 
 
 class TestVotacioEleccio:
-    """Tests per al metode votar_eleccio()."""
+    """Tests per al metode votar_eleccion()."""
 
     @pytest.mark.skip(reason="Pendent: requereix localnet i artifacts compilats")
     def test_vot_valid(self, app_client):
         """
         Verifica que un votant del cens pot emetre un vot valid.
-        AC1 de HU-03: el vot es registra correctament al SC.
+        El vot incrementa el comptador a l'index del candidat dins
+        el DynamicArray de vots.
+        AC1 de HU-03.
         """
         pass
 
     @pytest.mark.skip(reason="Pendent: requereix localnet i artifacts compilats")
-    def test_vot_incrementa_comptador(self, app_client):
+    def test_vot_incrementa_comptador_candidat_correcte(self, app_client):
         """
-        Verifica que el comptador del candidat s'incrementa en 1.
-        AC2 de HU-03: el recompte reflecteix el vot.
+        Verifica que el comptador s'incrementa nomes per al candidat
+        votat i no per als altres.
+        Amb candidats=["A","B","C"] i vot per "B",
+        vots ha de ser [0,1,0].
         """
         pass
 
@@ -45,22 +49,18 @@ class TestVotacioEleccio:
         """
         pass
 
-
-class TestConsultaResultats:
-    """Tests per al metode consultar_resultats()."""
-
     @pytest.mark.skip(reason="Pendent: requereix localnet i artifacts compilats")
-    def test_resultats_inicials_zero(self, app_client):
+    def test_vot_fora_cens_falla(self, app_client):
         """
-        Verifica que els resultats d'una eleccio nova son 0 per a
-        tots els candidats.
+        Verifica que una adreca fora del cens de l'eleccio
+        no pot votar.
         """
         pass
 
     @pytest.mark.skip(reason="Pendent: requereix localnet i artifacts compilats")
-    def test_resultats_despres_de_vots(self, app_client):
+    def test_multiples_vots_diferents_votants(self, app_client):
         """
-        Verifica que consultar_resultats retorna el total correcte
-        despres de multiples vots.
+        Verifica que multiples votants poden votar correctament
+        i els comptadors s'acumulen be.
         """
         pass

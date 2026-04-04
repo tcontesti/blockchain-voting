@@ -1,5 +1,11 @@
 # Blockchain Voting System
 
+![Estat: Sprint 3](https://img.shields.io/badge/Estat-Sprint%203%20%2F%205-blue)
+![Blockchain: Algorand](https://img.shields.io/badge/Blockchain-Algorand-purple)
+![Smart Contracts: algopy](https://img.shields.io/badge/Smart%20Contracts-algopy-blueviolet)
+![Frontend: React 19](https://img.shields.io/badge/Frontend-React%2019%20%2B%20Tailwind-61dafb)
+![Llicencia: Academic](https://img.shields.io/badge/Llicencia-Academic-lightgrey)
+
 Sistema de Votacio Electronica descentralitzat basat en Algorand.
 UIB -- 21782 Laboratori de Projectes de Software -- Maig 2026.
 
@@ -16,19 +22,45 @@ fallada. La logica electoral resideix integrement dins un contracte intel·ligen
 immutable desplegat a la xarxa Algorand, i cap servidor intermediari te acces a
 les claus privades dels votants.
 
-## Estat actual
+## Arquitectura
 
-El projecte es troba en fase d'implementacio (Sprint 3 de 5).
+<p align="center">
+  <img src="docs/img/arquitectura-c4.svg" alt="Arquitectura C4 — Contenidors" width="800">
+</p>
 
-| Component | Estat |
-|-----------|-------|
-| Arquitectura C4 | Completat |
-| Abast i requisits | Completat |
-| Mockup UI (7 pantalles) | Completat |
-| Smart Contracts (algopy) | En curs |
-| Frontend React | En curs |
-| Servei anchoring | Pendent |
-| Tests E2E | Pendent |
+El sistema segueix el model C4 amb 4 contenidors principals:
+
+| Contenidor | Tecnologia | Funcio |
+|------------|-----------|--------|
+| Aplicacio web | React 19 + Tailwind + Bun | Thin Client — cap logica de negoci |
+| Smart Contract | algopy / TEAL / ARC-4 | Router + Verificador + Schulze + Propostes |
+| Anchoring | Python + Web3.py + Solidity | Notary K-de-N a Ethereum Sepolia |
+| Infraestructura | Algorand + Pera Wallet + Docker | Nodes institucionals + custodia claus |
+
+> Mes detalls a la [wiki d'Arquitectura C4](https://github.com/tcontesti/blockchain-voting/wiki/Arquitectura-C4).
+
+## Estat del projecte
+
+| Component | Estat | Responsable |
+|-----------|-------|-------------|
+| Arquitectura C4 | :green_circle: Completat | Dylan + Toni |
+| Abast i requisits (2 entregues) | :green_circle: Completat | Equip |
+| Mockup UI (7 pantalles) | :green_circle: Completat | Jordi |
+| Smart Contracts (algopy) | :large_blue_circle: En curs | Marc |
+| Frontend React + Tailwind | :large_blue_circle: En curs | Jordi |
+| Servei d'anchoring Python | :white_circle: Pendent | Dylan |
+| Ethereum Notary Contract | :white_circle: Pendent | Marc + Dylan |
+| Tests E2E (cobertura >= 80%) | :white_circle: Pendent | Marc |
+
+### Sprints
+
+| Sprint | Periode | Estat | Progres |
+|--------|---------|-------|---------|
+| Sprint 1 — Entorn i wallet | 23 feb - 8 mar | Completat | 100% |
+| Sprint 2 — Smart Contract votacio | 9 mar - 22 mar | Completat | 100% |
+| Sprint 3 — Propostes, recompte i frontend | 23 mar - 12 abr | **En curs** | ~40% |
+| Sprint 4 — Verificabilitat i anchoring | 13 abr - 3 mai | Pendent | 0% |
+| Sprint 5 — Integracio, QA i doc final | 4 mai - 24 mai | Pendent | 0% |
 
 ## Stack tecnologic
 
@@ -63,6 +95,8 @@ El projecte es troba en fase d'implementacio (Sprint 3 de 5).
         deploy.py
         populate_census.py
     docs/                               # GitHub Pages (landing page)
+      img/                              # Diagrames i captures
+        arquitectura-c4.svg             # Diagrama d'arquitectura C4
 
 ## Prerequisits
 

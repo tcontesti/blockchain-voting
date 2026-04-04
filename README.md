@@ -18,52 +18,58 @@ les claus privades dels votants.
 
 ## Estat actual
 
-El projecte es troba en fase d'implementacio. L'arquitectura, l'abast i el disseny
-de la interficie d'usuari estan completats. El codi del backend (Smart Contracts)
-i del frontend (React) estan en desenvolupament.
+El projecte es troba en fase d'implementacio (Sprint 3 de 5).
+
+| Component | Estat |
+|-----------|-------|
+| Arquitectura C4 | Completat |
+| Abast i requisits | Completat |
+| Mockup UI (7 pantalles) | Completat |
+| Smart Contracts (algopy) | En curs |
+| Frontend React | En curs |
+| Servei anchoring | Pendent |
+| Tests E2E | Pendent |
 
 ## Stack tecnologic
 
 | Capa | Tecnologia |
 |------|-----------|
-| Smart Contracts | PyTeal / TEAL / ARC-4 / AlgorKit |
+| Smart Contracts | algopy (Algorand Python) / TEAL / ARC-4 / AlgoKit |
 | Blockchain | Algorand (PPoS/VRF) -- localnet Docker |
 | Anchoring | Solidity / Ethereum Sepolia / Web3.py |
-| Frontend | React 19 / Vite / algosdk / WalletConnect SDK |
+| Frontend | React 19 / Tailwind CSS / Bun / algosdk / WalletConnect SDK |
 | Wallet | Pera Wallet (WalletConnect) |
 | Infraestructura | Docker / docker-compose |
-| Tests SC | AlgorKit testing framework (Python) + Hardhat (Solidity) |
+| Tests SC | AlgoKit testing framework (Python) + Hardhat (Solidity) |
 
 ## Estructura del repositori
 
     blockchain-voting/
-    contracts/          # Smart Contracts PyTeal/TEAL
-      src/              # Codi font dels contractes
-      tests/            # Tests unitaris (AlgorKit)
-      scripts/          # Scripts de desplegament
-    frontend/           # Aplicacio React/Vite
-      src/
-        pages/          # 7 pagines
-        components/     # Components reutilitzables
-        modules/        # WalletConnect, TransactionBuilder
-        hooks/          # React hooks
-        i18n/           # Traduccions EN/ES/CA
-      public/
-    anchoring/          # Servei d'ancoratge Ethereum
-      src/              # Gestor d'ancoratge Python
-      contracts/        # Ethereum Notary Contract (Solidity)
-      tests/            # Tests Hardhat
-    docs/               # GitHub Pages + documentacio
-    .github/
-      workflows/        # GitHub Actions CI
-      ISSUE_TEMPLATE/
+    contracts/                          # Smart Contracts algopy
+      smart_contracts/voting/           # Codi font dels contractes
+        contract.py                     # Router principal (5 @abimethod)
+        verificador.py                  # 7 funcions de validacio
+        logica_votacio.py               # Votacio pluralitat / Schulze
+        logica_propostes.py             # Modul de propostes
+        generador_eleccions.py          # Generacio automatica d'eleccions
+        constants.py                    # Constants i prefixos Box Storage
+        deploy_config.py                # Configuracio de desplegament
+      tests/                            # Tests unitaris (AlgoKit)
+        test_votacio.py                 # 5 tests votacio
+        test_doble_vot.py               # 5 tests prevencio doble vot
+        test_propostes.py               # 5 tests propostes
+        test_generador.py               # 4 tests generador
+      scripts/                          # Scripts de desplegament
+        deploy.py
+        populate_census.py
+    docs/                               # GitHub Pages (landing page)
 
 ## Prerequisits
 
 - Docker i Docker Compose
-- AlgorKit >= 2.0
-- Node.js >= 20 o Bun >= 1.0
-- Python >= 3.11
+- AlgoKit >= 2.0
+- Bun >= 1.0 (frontend)
+- Python >= 3.12
 
 ## Configuracio inicial
 
@@ -76,7 +82,7 @@ Edita el fitxer `.env` amb els valors necessaris abans de continuar.
 ## Instruccions de desplegament
 
 Les instruccions completes de desplegament, configuracio de l'entorn Docker
-i AlgorKit, i execucio dels tests s'actualitzaran a mesura que avanci la
+i AlgoKit, i execucio dels tests s'actualitzaran a mesura que avanci la
 implementacio.
 
 ## Equip
@@ -84,9 +90,9 @@ implementacio.
 | Membre | GitHub | Rol |
 |--------|--------|-----|
 | Toni Contesti | @tcontesti | Cap de Projecte |
-| Jordi Vanyo | @jvanyom | Frontend / UX |
-| Marc Link | @linkcla | QA / Seguretat |
-| Dylan Luigi Canning | @dylanluigi | Arquitectura / Smart Contracts |
+| Jordi Vanyo | @jvanyom | Frontend / UX (React, Tailwind, Bun) |
+| Marc Link | @linkcla | Smart Contracts (algopy, AlgoKit) / QA |
+| Dylan Luigi Canning | @dylanluigi | Arquitectura / Anchoring (Solidity) |
 
 ## Documentacio
 

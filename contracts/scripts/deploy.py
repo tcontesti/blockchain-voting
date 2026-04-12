@@ -15,6 +15,11 @@ import logging
 import sys
 from pathlib import Path
 
+# Afegir el directori contracts/ al sys.path perque els imports
+# de smart_contracts.artifacts funcionin independentment de des
+# d'on s'executa el script.
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 

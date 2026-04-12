@@ -15,6 +15,8 @@ import logging
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -60,8 +62,9 @@ def populate_census(app_id: int, addresses: list[str]) -> None:
         batch = addresses[i:i + BATCH_SIZE]
         logger.info(f"Carregant lot {i // BATCH_SIZE + 1}: {len(batch)} adreces")
 
+        from smart_contracts.artifacts.voting.voting_client import CargarCensoGlobalArgs
         app_client.send.cargar_censo_global(
-            args={"direcciones": batch}
+            args=CargarCensoGlobalArgs(direcciones=batch)
         )
 
     logger.info(f"Cens carregat: {total} adreces en {(total + BATCH_SIZE - 1) // BATCH_SIZE} lots")

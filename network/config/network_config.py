@@ -1,9 +1,22 @@
 """
 Modul: network_config.py
-Descripcio: Carrega la configuracio de la xarxa d'universitats
-            des de universities.json i resol els secrets des de
-            variables d'entorn.
-Referencia: BLOCKCHAIN.pdf §3.2.2, §10.1
+Descripcio: Carrega la configuracio de la xarxa d'universitats des del
+            fitxer universities.json i resol les credencials criptografiques
+            des de les variables d'entorn del sistema.
+
+            Cada universitat te associat un mnemonic d'Algorand que permet
+            derivar tant l'adreca publica (per al cens electoral) com la
+            clau privada (per signar transaccions). Aquestes credencials
+            NO s'emmagatzemen al JSON per seguretat; nomes s'hi guarda el
+            nom de la variable d'entorn on es troben (ex: "UIB_ALGO_MNEMONIC").
+
+            Flux tipic d'us:
+              1. setup_universities.py genera els comptes i escriu network/.env
+              2. Es carrega el .env (manualment o amb python-dotenv)
+              3. load_universities() llegeix el JSON i resol els mnemonics
+                 des de les variables d'entorn
+
+Referencia: BLOCKCHAIN.pdf §3.2.2 (Nodes institucionals), §10.1 (Configuracio)
 """
 
 import json
@@ -14,20 +27,61 @@ from pathlib import Path
 
 @dataclass
 class UniversityNode:
-    """Representa un node institucional (universitat)."""
+    """
+    Representa un node institucional dins la xarxa de votacio.
+
+    Cada universitat participant opera com a node independent que:
+      - Te el seu propi compte Algorand (derivat del mnemonic)
+      - Llegeix l'estat electoral de forma autonoma
+      - Calcula el hash SHA-256 dels resultats independentment
+      - (Futur) Envia el hash al contracte de notaria d'Ethereum
+
+    El mnemonic d'Algorand es una frase de 25 paraules que codifica la
+    clau privada. Des d'ell es deriven l'adreca publica i la clau privada.
+
+    Atributs:
+        id:                 Identificador curt de la universitat (ex: "uib").
+        name:               Nom complet (ex: "Universitat de les Illes Balears").
+        algorand_mnemonic:  Frase mnemonica de 25 paraules per al compte Algorand.
+                            Buida si no s'ha configurat la variable d'entorn.
+    """
     id: str
     name: str
     algorand_mnemonic: str
 
     @property
     def algorand_address(self) -> str:
-        """Deriva l'adreca Algorand des del mnemonic."""
+        """
+        Deriva l'adreca publica Algorand des del mnemonic.
+
+        L'adreca publica es l'identificador del compte a la blockchain
+        i s'usa per registrar la universitat al cens electoral del
+        contracte SistemaVotacion.
+
+        Returns:
+            Adreca Algorand de 58 caracters (base32 amb checksum).
+
+        Raises:
+            ValueError: Si el mnemonic es buit o invalid.
+        """
         from algosdk import mnemonic
         return mnemonic.to_public_key(self.algorand_mnemonic)
 
     @property
     def algorand_private_key(self) -> str:
-        """Deriva la clau privada Algorand des del mnemonic."""
+        """
+        Deriva la clau privada Algorand des del mnemonic.
+
+        La clau privada es necessaria per signar transaccions com a
+        la universitat (ex: votar, enviar resultats). Mai s'ha
+        d'emmagatzemar en text pla fora de variables d'entorn.
+
+        Returns:
+            Clau privada en format base64 compatible amb algosdk.
+
+        Raises:
+            ValueError: Si el mnemonic es buit o invalid.
+        """
         from algosdk import mnemonic
         return mnemonic.to_private_key(self.algorand_mnemonic)
 
@@ -36,7 +90,16 @@ CONFIG_DIR = Path(__file__).parent
 
 
 def load_config() -> dict:
-    """Carrega el fitxer universities.json."""
+    """
+    Carrega el fitxer universities.json amb la definicio de la xarxa.
+
+    El JSON conte la llista d'universitats (id, nom, referencies a variables
+    d'entorn) i el llindar de consens K (nombre minim d'universitats que han
+    de coincidir per validar un resultat).
+
+    Returns:
+        Diccionari amb les claus "universities" (llista) i "threshold_k" (enter).
+    """
     config_path = CONFIG_DIR / "universities.json"
     with open(config_path) as f:
         return json.load(f)
@@ -44,10 +107,18 @@ def load_config() -> dict:
 
 def load_universities() -> tuple[list[UniversityNode], int]:
     """
-    Carrega les universitats i resol els secrets des de les variables d'entorn.
+    Carrega les universitats i resol les credencials des de variables d'entorn.
+
+    Per a cada universitat definida al JSON, llegeix el mnemonic d'Algorand
+    des de la variable d'entorn indicada (ex: "UIB_ALGO_MNEMONIC").
+    Si la variable no esta definida, el mnemonic queda com a cadena buida
+    i les propietats algorand_address/algorand_private_key llancaran error.
 
     Returns:
-        (llista de UniversityNode, llindar K)
+        Tupla amb:
+          - Llista d'objectes UniversityNode (un per universitat)
+          - Llindar K (enter): nombre minim de nodes que han de coincidir
+            per validar un ancoratge (per defecte 2 de 3)
     """
     config = load_config()
     threshold_k = config["threshold_k"]
@@ -66,7 +137,19 @@ def load_universities() -> tuple[list[UniversityNode], int]:
 
 
 def get_algod_config() -> dict:
-    """Retorna la configuracio de connexio a algod des de variables d'entorn."""
+    """
+    Retorna la configuracio de connexio al node algod des de variables d'entorn.
+
+    Llegeix les variables ALGOD_SERVER, ALGOD_PORT i ALGOD_TOKEN per configurar
+    la connexio al node Algorand. Si no estan definides, usa els valors per
+    defecte corresponents a AlgoKit localnet (desenvolupament local).
+
+    Returns:
+        Diccionari amb les claus:
+          - "server": URL base del node (defecte: "http://localhost")
+          - "port": Port del node (defecte: 4001)
+          - "token": Token d'autenticacio (defecte: 64 'a' per a localnet)
+    """
     return {
         "server": os.environ.get("ALGOD_SERVER", "http://localhost"),
         "port": int(os.environ.get("ALGOD_PORT", "4001")),

@@ -1,8 +1,26 @@
 """
 Script: setup_universities.py
-Descripcio: Genera comptes d'Algorand per a cada universitat
-            definida a universities.json.
-            Escriu les claus al fitxer network/.env.
+Descripcio: Genera comptes d'Algorand per a cadascuna de les tres universitats
+            definides a config/universities.json (UIB, UPC, UAB) i escriu les
+            credencials al fitxer network/.env.
+
+            Aquest script es el primer pas per configurar la xarxa de nodes
+            universitaris. Cada universitat necessita un compte Algorand propi
+            per poder participar com a node independent al sistema de votacio.
+
+            Flux d'us:
+              1. Executar aquest script -> genera comptes i escriu network/.env
+              2. Desplegar el contracte SistemaVotacion (deploy.py)
+              3. Carregar les adreces generades al cens electoral (populate_census.py)
+              4. Les universitats ja poden llegir l'estat de les eleccions
+
+            El fitxer .env generat conte:
+              - Configuracio de connexio a algod (localnet per defecte)
+              - Camp APP_ID buit (s'omplira despres del desplegament)
+              - Mnemonic d'Algorand per a cada universitat
+
+            IMPORTANT: El fitxer .env conte claus privades (mnemonics) i NO
+            s'ha de pujar mai al repositori. Esta inclosa al .gitignore.
 
 Us:
   python network/scripts/setup_universities.py
@@ -25,7 +43,18 @@ CONFIG_PATH = NETWORK_DIR / "config" / "universities.json"
 
 
 def main():
-    # Carregar configuracio
+    """
+    Punt d'entrada principal del script.
+
+    Llegeix la configuracio de universitats des de universities.json,
+    genera un parell de claus Algorand per a cadascuna, i escriu totes
+    les credencials al fitxer network/.env en format compatible amb
+    python-dotenv i Docker Compose.
+
+    Al final, mostra un resum amb les adreces generades i el llindar K
+    configurat, util per a la posterior configuracio del cens electoral.
+    """
+    # Carregar configuracio de les universitats
     with open(CONFIG_PATH) as f:
         config = json.load(f)
 
@@ -50,8 +79,9 @@ def main():
         uni_id = uni["id"].upper()
         uni_name = uni["name"]
 
-        # Generar compte Algorand
+        # Generar parell de claus Algorand (clau privada + adreca publica)
         algo_private_key, algo_address = account.generate_account()
+        # Convertir la clau privada a frase mnemonica de 25 paraules
         algo_mnemonic = mnemonic.from_private_key(algo_private_key)
 
         algo_addresses.append(algo_address)
@@ -66,12 +96,12 @@ def main():
             "",
         ])
 
-    # Escriure .env
+    # Escriure el fitxer .env amb totes les credencials
     env_path = NETWORK_DIR / ".env"
     env_path.write_text("\n".join(env_lines) + "\n")
     logger.info(f"\nClaus escrites a: {env_path}")
 
-    # Resum
+    # Mostrar resum de les adreces generades
     print("\n" + "=" * 60)
     print("RESUM - Adreces per a la configuracio:")
     print("=" * 60)

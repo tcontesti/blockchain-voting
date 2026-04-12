@@ -1,19 +1,15 @@
 """
-Test d'integracio complet del sistema de xarxa universitaria.
+Test d'integracio del sistema de xarxa universitaria.
 
 Exercita:
   1. Hasher: determinisme i format canonic
   2. ARC-4 decoder: descodificacio de DynamicArray[String] i DynamicArray[UInt64]
-  3. Ethereum NotaryContract: desplegament, enviament de hashes, consens K-de-N
-  4. Flux complet: 3 universitats ancorant la mateixa eleccio
 
-Requisits: npx hardhat node executant-se al port 8545
+Requisits: cap (tests autonoms sense dependencies externes)
 """
 
 import json
-import subprocess
 import sys
-import time
 import hashlib
 import struct
 import os
@@ -39,10 +35,10 @@ def test(name):
         global PASSED, FAILED
         try:
             func()
-            print(f"  ✔ {name}")
+            print(f"  \u2714 {name}")
             PASSED += 1
         except Exception as e:
-            print(f"  ✗ {name}: {e}")
+            print(f"  \u2717 {name}: {e}")
             FAILED += 1
     return decorator
 
@@ -58,7 +54,7 @@ def assert_eq(actual, expected, msg=""):
 print("\n=== 1. Hasher (SHA-256 deterministic) ===")
 
 
-@test("Hash deterministic: mateixa entrada → mateix hash")
+@test("Hash deterministic: mateixa entrada \u2192 mateix hash")
 def _():
     state = ElectionState("Rector2026", ["Alice", "Bob", "Carol"], [10, 5, 8])
     h1 = compute_election_hash(state)
@@ -171,197 +167,10 @@ def _():
 
 
 # ============================================================
-# 3. TESTS ETHEREUM (NotaryContract via Hardhat)
-# ============================================================
-print("\n=== 3. Ethereum NotaryContract (live Hardhat) ===")
-
-# Iniciar Hardhat node en segon pla
-hardhat_proc = None
-hardhat_available = False
-
-try:
-    from web3 import Web3
-    w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:8545"))
-    if w3.is_connected():
-        hardhat_available = True
-        print("  (Hardhat node ja actiu)")
-except Exception:
-    pass
-
-if not hardhat_available:
-    print("  Iniciant Hardhat node...")
-    hardhat_proc = subprocess.Popen(
-        ["npx", "hardhat", "node"],
-        cwd=os.path.join(os.path.dirname(__file__), "ethereum"),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    # Esperar que estigui llest
-    for _ in range(20):
-        time.sleep(0.5)
-        try:
-            w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:8545"))
-            if w3.is_connected():
-                hardhat_available = True
-                print("  Hardhat node iniciat")
-                break
-        except Exception:
-            continue
-
-if hardhat_available:
-    # Carregar ABI i bytecode del contracte compilat
-    artifact_path = os.path.join(
-        os.path.dirname(__file__),
-        "ethereum", "artifacts", "contracts",
-        "NotaryContract.sol", "NotaryContract.json"
-    )
-
-    with open(artifact_path) as f:
-        artifact = json.load(f)
-
-    CONTRACT_ABI = artifact["abi"]
-    CONTRACT_BYTECODE = artifact["bytecode"]
-
-    # Obtenir comptes de Hardhat
-    accounts = w3.eth.accounts
-    uni_addresses = accounts[:3]  # UIB, UPC, UAB
-    outsider = accounts[4]
-
-    # Claus privades de Hardhat (ben conegudes, nomes per testing)
-    HARDHAT_KEYS = [
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-        "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
-        "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a",
-    ]
-
-    THRESHOLD = 2
-    notary_contract = None
-
-    @test("Desplegar NotaryContract amb 3 universitats, K=2")
-    def _():
-        global notary_contract
-        NotaryContract = w3.eth.contract(abi=CONTRACT_ABI, bytecode=CONTRACT_BYTECODE)
-        tx_hash = NotaryContract.constructor(uni_addresses, THRESHOLD).transact(
-            {"from": accounts[0]}
-        )
-        receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-        assert receipt["status"] == 1, "Desplegament ha fallat"
-        notary_contract = w3.eth.contract(
-            address=receipt["contractAddress"], abi=CONTRACT_ABI
-        )
-        print(f"    Contracte a: {receipt['contractAddress']}")
-
-    @test("Llindar es 2")
-    def _():
-        assert_eq(notary_contract.functions.threshold().call(), 2, "Llindar incorrecte")
-
-    @test("3 universitats registrades")
-    def _():
-        count = notary_contract.functions.getUniversityCount().call()
-        assert_eq(count, 3, "Nombre d'universitats incorrecte")
-
-    # Simular ancoratge complet
-    election_name = "Rector2026"
-    state = ElectionState("Rector2026", ["Alice", "Bob", "Carol"], [42, 31, 27])
-    election_hash = compute_election_hash(state)
-
-    @test("UIB envia hash → no finalitzat (1/2)")
-    def _():
-        from anchoring.ethereum_submitter import EthereumSubmitter
-        sub = EthereumSubmitter("http://127.0.0.1:8545",
-                                notary_contract.address, HARDHAT_KEYS[0])
-        tx = sub.submit_hash(election_name, election_hash)
-        assert tx, "Transaccio buida"
-        finalized, _, subs = sub.check_consensus(election_name)
-        assert not finalized, "No hauria d'estar finalitzat amb 1 enviament"
-        assert_eq(subs, 1, "Hauria de tenir 1 enviament")
-
-    @test("UPC envia hash → CONSENS ASSOLIT (2/2)")
-    def _():
-        from anchoring.ethereum_submitter import EthereumSubmitter
-        sub = EthereumSubmitter("http://127.0.0.1:8545",
-                                notary_contract.address, HARDHAT_KEYS[1])
-        tx = sub.submit_hash(election_name, election_hash)
-        assert tx, "Transaccio buida"
-        finalized, official, subs = sub.check_consensus(election_name)
-        assert finalized, "Hauria d'estar finalitzat amb K=2 enviaments"
-        assert_eq(subs, 2, "Hauria de tenir 2 enviaments")
-        assert_eq(official, election_hash, "Hash oficial incorrecte")
-
-    @test("UAB no pot enviar despres de finalitzacio")
-    def _():
-        from anchoring.ethereum_submitter import EthereumSubmitter
-        sub = EthereumSubmitter("http://127.0.0.1:8545",
-                                notary_contract.address, HARDHAT_KEYS[2])
-        try:
-            sub.submit_hash(election_name, election_hash)
-            raise AssertionError("Hauria d'haver fallat")
-        except Exception as e:
-            assert "finalitzada" in str(e).lower() or "revert" in str(e).lower(), \
-                f"Error inesperat: {e}"
-
-    @test("Hash oficial coincideix amb el calculat localment")
-    def _():
-        from anchoring.ethereum_submitter import EthereumSubmitter
-        sub = EthereumSubmitter("http://127.0.0.1:8545",
-                                notary_contract.address, HARDHAT_KEYS[0])
-        finalized, official, _ = sub.check_consensus(election_name)
-        expected_hex = compute_election_hash_hex(state)
-        actual_hex = "0x" + official.hex()
-        assert_eq(actual_hex, expected_hex, "Hash no coincideix")
-
-    # Test amb segona eleccio (hash diferent, consens falla)
-    election2 = "Dega2026"
-    state_a = ElectionState("Dega2026", ["X", "Y"], [10, 20])
-    state_b = ElectionState("Dega2026", ["X", "Y"], [10, 21])  # Diferent!
-    hash_a = compute_election_hash(state_a)
-    hash_b = compute_election_hash(state_b)
-
-    @test("Desacord: 2 universitats envien hashes diferents → NO consens")
-    def _():
-        # Desplegar nou contracte per a aquest test
-        NotaryContract = w3.eth.contract(abi=CONTRACT_ABI, bytecode=CONTRACT_BYTECODE)
-        tx = NotaryContract.constructor(uni_addresses, 2).transact({"from": accounts[0]})
-        receipt = w3.eth.wait_for_transaction_receipt(tx)
-        contract2 = w3.eth.contract(address=receipt["contractAddress"], abi=CONTRACT_ABI)
-
-        from anchoring.ethereum_submitter import EthereumSubmitter
-        sub_uib = EthereumSubmitter("http://127.0.0.1:8545",
-                                     contract2.address, HARDHAT_KEYS[0])
-        sub_upc = EthereumSubmitter("http://127.0.0.1:8545",
-                                     contract2.address, HARDHAT_KEYS[1])
-
-        sub_uib.submit_hash(election2, hash_a)
-        sub_upc.submit_hash(election2, hash_b)
-
-        finalized, _, subs = sub_uib.check_consensus(election2)
-        assert not finalized, "No hauria de finalitzar amb hashes discordants"
-        assert_eq(subs, 2, "Hauria de tenir 2 enviaments")
-
-    # Test AnchoringService amb mock
-    @test("AnchoringService detecta enviaments duplicats")
-    def _():
-        from anchoring.ethereum_submitter import EthereumSubmitter
-        sub = EthereumSubmitter("http://127.0.0.1:8545",
-                                notary_contract.address, HARDHAT_KEYS[0])
-        assert sub.has_already_submitted(election_name), \
-            "UIB hauria de figurar com a ja enviat"
-
-else:
-    print("  ⚠ Hardhat no disponible, saltant tests d'Ethereum")
-
-
-# ============================================================
 # RESUM
 # ============================================================
 print(f"\n{'='*50}")
 print(f"RESULTAT: {PASSED} tests passats, {FAILED} tests fallats")
 print(f"{'='*50}")
-
-# Aturar Hardhat si l'hem iniciat nosaltres
-if hardhat_proc:
-    hardhat_proc.terminate()
-    hardhat_proc.wait()
-    print("Hardhat node aturat")
 
 sys.exit(1 if FAILED > 0 else 0)

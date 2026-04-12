@@ -4,20 +4,17 @@
     {
       "id": "uib",
       "name": "Universitat de les Illes Balears",
-      "algorand_mnemonic_env": "UIB_ALGO_MNEMONIC",
-      "ethereum_private_key_env": "UIB_ETH_PRIVATE_KEY"
+      "algorand_mnemonic_env": "UIB_ALGO_MNEMONIC"
     },
     {
       "id": "upc",
       "name": "Universitat Politecnica de Catalunya",
-      "algorand_mnemonic_env": "UPC_ALGO_MNEMONIC",
-      "ethereum_private_key_env": "UPC_ETH_PRIVATE_KEY"
+      "algorand_mnemonic_env": "UPC_ALGO_MNEMONIC"
     },
     {
       "id": "uab",
       "name": "Universitat Autonoma de Barcelona",
-      "algorand_mnemonic_env": "UAB_ALGO_MNEMONIC",
-      "ethereum_private_key_env": "UAB_ETH_PRIVATE_KEY"
+      "algorand_mnemonic_env": "UAB_ALGO_MNEMONIC"
     }
   ]
 }

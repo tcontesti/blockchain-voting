@@ -18,13 +18,6 @@ class UniversityNode:
     id: str
     name: str
     algorand_mnemonic: str
-    ethereum_private_key: str
-
-    @property
-    def ethereum_address(self) -> str:
-        """Deriva l'adreca Ethereum des de la clau privada."""
-        from web3 import Account
-        return Account.from_key(self.ethereum_private_key).address
 
     @property
     def algorand_address(self) -> str:
@@ -62,13 +55,11 @@ def load_universities() -> tuple[list[UniversityNode], int]:
 
     for uni in config["universities"]:
         algo_mnemonic = os.environ.get(uni["algorand_mnemonic_env"], "")
-        eth_private_key = os.environ.get(uni["ethereum_private_key_env"], "")
 
         nodes.append(UniversityNode(
             id=uni["id"],
             name=uni["name"],
             algorand_mnemonic=algo_mnemonic,
-            ethereum_private_key=eth_private_key,
         ))
 
     return nodes, threshold_k
@@ -83,12 +74,4 @@ def get_algod_config() -> dict:
             "ALGOD_TOKEN",
             "a" * 64,
         ),
-    }
-
-
-def get_ethereum_config() -> dict:
-    """Retorna la configuracio de connexio a Ethereum des de variables d'entorn."""
-    return {
-        "rpc_url": os.environ.get("ETHEREUM_RPC_URL", "http://localhost:8545"),
-        "notary_address": os.environ.get("NOTARY_CONTRACT_ADDRESS", ""),
     }

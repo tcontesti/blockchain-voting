@@ -62,11 +62,12 @@ El sistema segueix el model C4 amb 4 contenidors principals:
 | Arquitectura C4 | :green_circle: Completat | Dylan + Toni |
 | Abast i requisits (2 entregues) | :green_circle: Completat | Equip |
 | Mockup UI (7 pantalles) | :green_circle: Completat | Jordi |
-| Smart Contracts (algopy) | :large_blue_circle: En curs | Marc |
-| Frontend React + Tailwind | :large_blue_circle: En curs | Jordi |
+| Smart Contracts (algopy) | :large_blue_circle: En curs — contracte principal implementat | Marc |
+| Frontend React + Tailwind | :white_circle: Pendent | Jordi |
+| GitHub Actions CI | :white_circle: Pendent | Dylan |
 | Servei d'anchoring Python | :white_circle: Pendent | Dylan |
 | Ethereum Notary Contract | :white_circle: Pendent | Marc + Dylan |
-| Tests E2E (cobertura >= 80%) | :white_circle: Pendent | Marc |
+| Tests E2E (cobertura >= 80%) | :white_circle: Pendent — 25 casos definits | Marc |
 
 ### Sprints
 
@@ -74,8 +75,8 @@ El sistema segueix el model C4 amb 4 contenidors principals:
 |--------|---------|-------|---------|
 | Sprint 1 — Entorn i wallet | 23 feb - 8 mar | Completat | 100% |
 | Sprint 2 — Smart Contract votacio | 9 mar - 22 mar | Completat | 100% |
-| Sprint 3 — Propostes, recompte i frontend | 23 mar - 12 abr | **En curs** | ~40% |
-| Sprint 4 — Verificabilitat i anchoring | 13 abr - 3 mai | Pendent | 0% |
+| Sprint 3 — Propostes, recompte i frontend | 23 mar - 12 abr | **Tancat** | ~20% (SC propostes fet, frontend i CI pendents) |
+| Sprint 4 — Verificabilitat i anchoring | 13 abr - 3 mai | **En curs** | 0% |
 | Sprint 5 — Integracio, QA i doc final | 4 mai - 24 mai | Pendent | 0% |
 
 ## Stack tecnologic
@@ -95,18 +96,18 @@ El sistema segueix el model C4 amb 4 contenidors principals:
     blockchain-voting/
     contracts/                          # Smart Contracts algopy
       smart_contracts/voting/           # Codi font dels contractes
-        contract.py                     # Router principal (5 @abimethod)
-        verificador.py                  # 7 funcions de validacio
-        logica_votacio.py               # Votacio pluralitat / Schulze
-        logica_propostes.py             # Modul de propostes
-        generador_eleccions.py          # Generacio automatica d'eleccions
-        constants.py                    # Constants i prefixos Box Storage
+        contract.py                     # Router principal (5 @abimethod, 10 verificadors)
+        verificador.py                  # Documentacio dels 10 verificadors
+        logica_votacio.py               # Votacio pluralitat (Schulze pendent)
+        logica_propostes.py             # Documentacio logica de propostes
+        generador_eleccions.py          # Documentacio generador d'eleccions
+        constants.py                    # 10 prefixos BoxMap + constants
         deploy_config.py                # Configuracio de desplegament
       tests/                            # Tests unitaris (AlgoKit)
-        test_votacio.py                 # 5 tests votacio
+        test_votacio.py                 # 6 tests votacio
         test_doble_vot.py               # 5 tests prevencio doble vot
-        test_propostes.py               # 5 tests propostes
-        test_generador.py               # 4 tests generador
+        test_propostes.py               # 9 tests propostes i cens
+        test_generador.py               # 5 tests generador
       scripts/                          # Scripts de desplegament
         deploy.py
         populate_census.py

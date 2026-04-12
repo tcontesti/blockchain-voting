@@ -274,3 +274,69 @@ JSON hardcoded        →    Lectura des del cens  →    Autoregistre
 Ethereum buit         →    NotaryContract Sepolia→    Ancoratge real
 Claus en .env         →    Gestor de secrets     →    HSM/KMS
 ```
+
+---
+
+## Apendix: Com llegir els arguments de les transaccions (Base64 i ARC-4)
+
+### Per que els arguments apareixen en Base64?
+
+Quan un votant executa `votar_eleccion`, Algorand emmagatzema els arguments de la crida ABI com a bytes crus al registre de la transaccio. L'explorador Lora (i qualsevol altre explorador de blocs) mostra aquests bytes en **Base64** perque es el format estandard per representar dades binaries arbitraries en text. No es cap mecanisme de xifrat: es simplement una codificacio de representacio.
+
+La cadena de codificacio completa es:
+
+```
+"Carol"
+  → ARC-4 (prefixe de longitud 2 bytes)  →  \x00\x05Carol
+  → Base64                                →  AAVDYXJvbA==
+  → Explorador Lora (pestanya "App Args") →  AAVDYXJvbA==
+```
+
+El primer pas (ARC-4) l'imposa l'estandard ABI d'Algorand: cada argument de tipus `string` porta un prefixe de 2 bytes en big-endian que indica la longitud de la cadena. El segon pas (Base64) el fa l'explorador per poder mostrar qualsevol seqüencia de bytes com a text ASCII.
+
+### Com desxifrar-ho
+
+Per recuperar el valor original cal fer el proces invers: Base64 → bytes crus → saltar els 2 primers bytes (longitud ARC-4) → llegir la resta com a UTF-8.
+
+**Consola del navegador (F12):**
+```javascript
+// Descodifica i salta els 2 bytes de longitud ARC-4
+atob("AAVDYXJvbA==").slice(2)   // → "Carol"
+atob("ABBSZWN0b3IxNzc1OTg5NjE1").slice(2)  // → "Rector1775989615"
+```
+
+**Python:**
+```python
+import base64
+
+def arc4_decode(b64: str) -> str:
+    raw = base64.b64decode(b64)
+    return raw[2:].decode("utf-8")  # salta els 2 bytes de longitud
+
+print(arc4_decode("AAVDYXJvbA=="))               # → Carol
+print(arc4_decode("ABBSZWN0b3IxNzc1OTg5NjE1"))   # → Rector1775989615
+```
+
+**Eina online:** `base64decode.org` → enganxa el valor → ignora els 2 primers caracters del resultat.
+
+### El primer argument sempre es el selector de metode
+
+Cada crida ABI comenca amb un argument addicional de 4 bytes: el **selector de metode** (hash SHA-512/256 truncat de la signatura del metode). Per exemple:
+
+```
+Fh3Jag==  →  bytes \x16\x1d\xc9\x6a  →  selector de votar_eleccion(string,string)void
+```
+
+Aquest valor no es un argument del votant; es el identificador intern que el router del contracte usa per saber quina funcio executar. Cal ignorar-lo quan es volen llegir els arguments reals.
+
+### Resum dels arguments de votar_eleccion
+
+| Posicio | Exemple Base64 | Valor decodificat | Significat |
+|---------|---------------|-------------------|------------|
+| 1 | `Fh3Jag==` | `\x16\x1d\xc9\x6a` | Selector del metode (ignorar) |
+| 2 | `ABBSZWN0b3IxNzc1OTg5NjE1` | `Rector1775989615` | Nom de l'eleccio |
+| 3 | `AAVDYXJvbA==` | `Carol` | Candidat escollit |
+
+### Privacitat del vot
+
+Els arguments **no estan xifrats**: qualsevol persona que conexi l'adreca Algorand d'un votant pot consultar el seu historial de transaccions i veure exactament per qui ha votat. La privacitat del sistema es basa en el **pseudonimat de les adreces**: si no es coneix a quina persona fisica correspon una adreca, el vot es opac per al public general. L'organitzador electoral, pero, coneix la correspondencia adreca-persona ja que ell mateix ha carregat el cens.

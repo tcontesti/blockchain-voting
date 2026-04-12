@@ -1,0 +1,12 @@
+{
+  "Version": 33,
+  "GossipFanout": 1,
+  "EndpointAddress": "0.0.0.0:8080",
+  "DNSBootstrapID": "",
+  "EnableDeveloperAPI": true,
+  "EnableProfiler": false,
+  "EnableRequestLogger": false,
+  "MaxAPIResourcesPerAccount": 100000,
+  "MaxTransactionsPerBlock": 25000,
+  "DisableLocalhostRestrictionForAPI": true
+}

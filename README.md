@@ -94,6 +94,11 @@ El sistema segueix el model C4 amb 4 contenidors principals:
 ## Estructura del repositori
 
     blockchain-voting/
+    infra/                              # Infraestructura i nodes
+      algorand/                         # Xarxa Algorand localnet
+        docker-compose.yml              # Orquestracio Docker (algod + indexer)
+        config/                         # Configuracio dels nodes
+        scripts/                        # Scripts d'operacions (.sh)
     contracts/                          # Smart Contracts algopy
       smart_contracts/voting/           # Codi font dels contractes
         contract.py                     # Router principal (5 @abimethod, 10 verificadors)

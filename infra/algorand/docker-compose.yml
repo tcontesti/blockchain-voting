@@ -1,0 +1,87 @@
+# Xarxa Algorand localnet per a desenvolupament
+# Usa les imatges oficials d'Algorand per crear una xarxa local
+# amb un node algod i un indexer per a consultes.
+#
+# Instruccions:
+#   docker-compose up -d        — Arrancar
+#   docker-compose ps           — Verificar estat
+#   docker-compose logs -f      — Veure logs en temps real
+#   docker-compose down         — Aturar
+#   docker-compose down -v      — Aturar i esborrar dades
+#
+# Responsable: Dylan Luigi Canning (@dylanluigi)
+
+services:
+  # =============================================
+  # Node Algorand (algod)
+  # =============================================
+  # Punt d'entrada principal a la xarxa.
+  # El Smart Contract es desplega aqui.
+  algod:
+    image: algorand/algod:latest
+    container_name: bv-algod
+    ports:
+      - "4001:8080"    # API REST del node
+      - "4002:7833"    # KMD (Key Management Daemon)
+    environment:
+      - NETWORK=devmode
+      - TOKEN=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      - KMD_TOKEN=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    volumes:
+      - algod-data:/algod/data
+      - ./config/node-config.json:/etc/algorand/config.json:ro
+    healthcheck:
+      test: ["CMD", "goal", "node", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # =============================================
+  # Algorand Indexer
+  # =============================================
+  # Permet consultes avançades (cercar transaccions,
+  # comptes, assets) que el node algod no suporta.
+  indexer:
+    image: algorand/indexer:latest
+    container_name: bv-indexer
+    ports:
+      - "8980:8980"    # API REST de l'indexer
+    environment:
+      - ALGOD_HOST=algod
+      - ALGOD_PORT=8080
+      - ALGOD_TOKEN=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      - POSTGRES_HOST=indexer-db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=indexer
+      - POSTGRES_PASSWORD=indexer
+      - POSTGRES_DB=indexer
+    depends_on:
+      algod:
+        condition: service_healthy
+      indexer-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # =============================================
+  # Base de dades per a l'Indexer
+  # =============================================
+  indexer-db:
+    image: postgres:16-alpine
+    container_name: bv-indexer-db
+    environment:
+      - POSTGRES_USER=indexer
+      - POSTGRES_PASSWORD=indexer
+      - POSTGRES_DB=indexer
+    volumes:
+      - indexer-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U indexer"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  algod-data:
+  indexer-db-data:

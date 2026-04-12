@@ -21,6 +21,8 @@ Simulacio de la xarxa institucional descrita al document tecnic (§3.2.2, §7.3.
 └────────────┘  └────────────┘  └────────────┘
 ```
 
+**Principi fonamental:** el contracte `SistemaVotacion` es desplega una sola vegada. Cada universitat es connecta de forma independent com a lector, sense necessitat de reiniciar res ni de modificar el contracte.
+
 **Universitats simulades:**
 
 | ID  | Nom                                    |
@@ -84,6 +86,58 @@ algokit project run build
 python scripts/deploy.py            # → APP_ID
 ```
 
+---
+
+## Com s'uneix una nova universitat a la xarxa
+
+El disseny del sistema permet que una nova universitat s'incorpori a una xarxa ja en funcionament sense aturar ni modificar el contracte desplegat. El contracte `SistemaVotacion` es desplega una sola vegada per l'organitzador; les universitats nomes s'hi connecten com a nodes lectors independents.
+
+### Flux d'incorporacio
+
+```
+Nova universitat vol unir-se
+         │
+         ▼
+1. Generar compte Algorand propi
+   python network/scripts/setup_universities.py
+   → Crea un parell de claus (mnemonic + adreca publica)
+   → Escriu les credencials a network/.env
+         │
+         ▼
+2. Comunicar l'adreca Algorand a l'organitzador electoral
+   (per correu, formulari, o qualsevol canal segur)
+         │
+         ▼
+3. L'organitzador afegeix l'adreca al cens del contracte
+   python contracts/scripts/populate_census.py \
+       --addresses <ADRECA_NOVA_UNIVERSITAT>
+   → Crida cargar_censo_global() sobre el contracte existent
+   → NO requereix redesplegament ni reinici
+         │
+         ▼
+4. La universitat configura el seu .env local
+   APP_ID=<el mateix APP_ID existent>
+   ALGOD_SERVER=<endpoint del node Algorand compartit>
+   X_ALGO_MNEMONIC=<el mnemonic generat al pas 1>
+         │
+         ▼
+5. La universitat ja pot llegir eleccions i calcular hashes
+   (AlgorandElectionReader connectat al contracte en viu)
+```
+
+### Que NO cal fer
+
+- No cal reiniciar el contracte ni redeplegar-lo.
+- No cal que les altres universitats facin cap canvi.
+- No cal modificar cap fitxer de configuracio del sistema.
+- El cens es additiu: afegir una universitat nova no afecta les existents.
+
+### Limitacio actual i TODO
+
+> **TODO:** `config/universities.json` te les tres universitats (UIB, UPC, UAB) hardcoded. Per permetre que qualsevol universitat s'incorpori dinamicament sense modificar codi, cal refactoritzar `network_config.py` i `setup_universities.py` per acceptar un nombre variable de nodes i llegir la llista de participants directament del cens del contracte (box `ct` / `cd`) en lloc d'un fitxer JSON fix.
+
+---
+
 ## Components
 
 ### Algorand Reader (`anchoring/algorand_reader.py`)
@@ -120,3 +174,103 @@ Directori reservat per al contracte de notaria (NotaryContract). Pendent d'imple
 | `UIB_ALGO_MNEMONIC` | Mnemonic Algorand de la UIB |
 | `UPC_ALGO_MNEMONIC` | Mnemonic Algorand de la UPC |
 | `UAB_ALGO_MNEMONIC` | Mnemonic Algorand de la UAB |
+
+---
+
+## Apendix: Desplegament en xarxa real i propers passos
+
+Aquesta seccio descriu com passar de l'entorn de desenvolupament local (AlgoKit localnet) a un desplegament real sobre Algorand Testnet o Mainnet, i quins passos caldria seguir per convertir el sistema en un servei obert on qualsevol universitat pugui participar.
+
+### De localnet a Testnet/Mainnet
+
+El canvi principal es substituir l'endpoint d'algod. Tot el codi de `anchoring/` i `contracts/` funciona identic sobre qualsevol xarxa Algorand; nomes cal actualitzar les variables d'entorn:
+
+| Variable | Localnet | Testnet | Mainnet |
+|----------|----------|---------|---------|
+| `ALGOD_SERVER` | `http://localhost` | `https://testnet-api.algonode.cloud` | `https://mainnet-api.algonode.cloud` |
+| `ALGOD_PORT` | `4001` | `443` | `443` |
+| `ALGOD_TOKEN` | `aaa...aaa` | *(buit o token del proveidor)* | *(token del proveidor)* |
+
+Proveïdors publics d'endpoints Algorand: **Nodely** (algonode.cloud), **AlgoExplorer**, o node propi.
+
+**Passos per desplegar a Testnet:**
+
+```bash
+# 1. Obtenir ALGO de test (faucet)
+#    https://bank.testnet.algorand.network/
+
+# 2. Configurar .env amb l'endpoint de testnet
+ALGOD_SERVER=https://testnet-api.algonode.cloud
+ALGOD_PORT=443
+ALGOD_TOKEN=
+
+# 3. Desplegar el contracte (identic al proces de localnet)
+cd contracts
+algokit project run build
+python scripts/deploy.py    # → APP_ID real a testnet
+
+# 4. Les universitats configuren el seu .env amb el nou APP_ID
+APP_ID=<app_id_testnet>
+```
+
+A Mainnet el proces es identic pero amb ALGO reals. El cost de desplegament del contracte i de cada transaccio (votar, carregar cens) es cobreix amb ALGO del compte del desplegador.
+
+### Propers passos per a un servei multi-universitat obert
+
+Per transformar el sistema actual en un servei on qualsevol universitat pugui incorporar-se de forma autonoma, caldria abordar els seguents aspectes:
+
+#### 1. Cens obert i autoregistre
+
+Actualment el cens es carrega manualment per l'organitzador (`cargar_censo_global`). Per a un servei obert caldria:
+
+- Afegir un metode `sol·licitar_acces(adreca)` al contracte que registri sol·licituds pendents d'aprovacio.
+- O be adoptar un model de cens public: qualsevol adreca registrada a una autoritat de confianca (ex. LDAP universitari) pot votar sense aprovacio manual.
+- El llindar K del consens hauria de ser configurable dinamicament o governable per les mateixes universitats participants.
+
+#### 2. Descoberta dinamica de participants
+
+Substituir `universities.json` per una lectura dinamica del cens del contracte:
+
+- Llegir les boxes amb prefix `cd` (cens de participants) per descobrir automaticament quines adreces estan registrades.
+- `network_config.py` generaria la llista de nodes a partir de l'estat actual del contracte, sense necessitat de fitxers de configuracio previs.
+
+#### 3. Contracte de notaria Ethereum (capa d'ancoratge)
+
+El directori `network/ethereum/` esta reservat per al `NotaryContract` Solidity que implementa el consens K-de-N:
+
+- Cada universitat envia el seu hash SHA-256 al contracte.
+- Quan K universitats envien el mateix hash, el resultat queda ancorat com a oficial a Ethereum.
+- Caldria desplegar-lo a Ethereum Sepolia (testnet) o Mainnet i actualitzar `ETHEREUM_RPC_URL` i `NOTARY_CONTRACT_ADDRESS` a cada node.
+
+#### 4. Infraestructura de node per universitat
+
+En produccio, cada universitat hauria d'operar el seu propi node Algorand per garantir la independencia de lectura (un node propi no pot ser censurat per tercers):
+
+```
+Universitat X
+├── Node algod propi (sincronitzat amb Mainnet)
+├── Servei anchoring/ (Python, executa en background)
+└── Claus privades en HSM o gestor de secrets (Vault, AWS KMS)
+```
+
+Alternativament, per a institucions petites, es pot usar un endpoint public de confianca (Nodely, etc.) mentre no es diposi de node propi.
+
+#### 5. Identitat i autenticacio institucional
+
+Per garantir que cada node es realment una universitat i no un actor malicious:
+
+- Registrar les adreces Algorand en un smart contract de directori (whitelist governada).
+- Vincular l'adreca Algorand a un certificat X.509 institucional o a un DID (Decentralized Identifier).
+- El llindar K s'hauria d'ajustar a mesura que creix el nombre de participants (ex. K = ceil(2/3 * N) per tolerancia bizantina).
+
+#### Resum de la ruta cap a produccio
+
+```
+Estat actual                Propers passos             Produccio
+──────────────────────────────────────────────────────────────────
+Localnet (AlgoKit)    →    Testnet (Algorand)    →    Mainnet
+3 universitats fixes  →    Cens dinamic          →    N universitats
+JSON hardcoded        →    Lectura des del cens  →    Autoregistre
+Ethereum buit         →    NotaryContract Sepolia→    Ancoratge real
+Claus en .env         →    Gestor de secrets     →    HSM/KMS
+```

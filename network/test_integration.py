@@ -43,6 +43,7 @@ from anchoring.algorand_reader import (
     _decode_dynamic_string_array,
     _decode_dynamic_uint64_array,
 )
+from anchoring.consensus import check_consensus
 
 PASSED = 0
 FAILED = 0
@@ -219,6 +220,61 @@ def _():
     data = struct.pack(">H", 0)
     result = _decode_dynamic_string_array(data)
     assert_eq(result, [], "Array buit hauria de ser []")
+
+
+# ============================================================
+# 3. TESTS DEL CONSENS K-de-N
+# ============================================================
+# Verifiquen que la logica de consens detecta correctament quan
+# K nodes coincideixen en el hash i identifica nodes discrepants.
+# ============================================================
+print("\n=== 3. Consens K-de-N ===")
+
+
+@test("Consens assolit amb 3/3 nodes iguals (K=2)")
+def _():
+    """Tots els nodes coincideixen: consens assolit."""
+    hashes = {"uib": "0xabc", "upc": "0xabc", "uab": "0xabc"}
+    result = check_consensus(hashes, threshold_k=2)
+    assert result.reached, "Consens hauria d'estar assolit"
+    assert_eq(result.consensus_hash, "0xabc", "Hash incorrecte")
+    assert_eq(len(result.agreeing_nodes), 3, "Tots haurien de coincidir")
+    assert_eq(len(result.dissenting_nodes), 0, "No hi hauria d'haver discrepants")
+
+
+@test("Consens assolit amb 2/3 nodes iguals (K=2)")
+def _():
+    """Dos nodes coincideixen, un discrepa: consens assolit."""
+    hashes = {"uib": "0xabc", "upc": "0xabc", "uab": "0xdef"}
+    result = check_consensus(hashes, threshold_k=2)
+    assert result.reached, "Consens hauria d'estar assolit"
+    assert_eq(result.consensus_hash, "0xabc", "Hash incorrecte")
+    assert_eq(len(result.agreeing_nodes), 2, "Dos haurien de coincidir")
+    assert_eq(result.dissenting_nodes, ["uab"], "UAB hauria de ser discrepant")
+
+
+@test("Consens NO assolit amb 3 hashes diferents (K=2)")
+def _():
+    """Tots els nodes discrepan: consens no assolit."""
+    hashes = {"uib": "0xaaa", "upc": "0xbbb", "uab": "0xccc"}
+    result = check_consensus(hashes, threshold_k=2)
+    assert not result.reached, "Consens NO hauria d'estar assolit"
+
+
+@test("Consens amb diccionari buit retorna reached=False")
+def _():
+    """Sense nodes, no hi ha consens."""
+    result = check_consensus({}, threshold_k=2)
+    assert not result.reached, "Consens NO hauria d'estar assolit"
+    assert_eq(result.total_nodes, 0, "Total hauria de ser 0")
+
+
+@test("Consens amb K=1 sempre s'assoleix si hi ha almenys 1 node")
+def _():
+    """Amb llindar K=1, un sol node es suficient."""
+    hashes = {"uib": "0xabc"}
+    result = check_consensus(hashes, threshold_k=1)
+    assert result.reached, "Consens hauria d'estar assolit amb K=1"
 
 
 # ============================================================

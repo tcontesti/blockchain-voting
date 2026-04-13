@@ -32,31 +32,27 @@ class UniversityNode:
 
     Cada universitat participant opera com a node independent que:
       - Te el seu propi compte Algorand (derivat del mnemonic)
+      - Te el seu propi compte Ethereum (clau privada ECDSA)
       - Llegeix l'estat electoral de forma autonoma
       - Calcula el hash SHA-256 dels resultats independentment
-      - (Futur) Envia el hash al contracte de notaria d'Ethereum
-
-    El mnemonic d'Algorand es una frase de 25 paraules que codifica la
-    clau privada. Des d'ell es deriven l'adreca publica i la clau privada.
+      - Envia el hash signat al contracte NotaryContract d'Ethereum
 
     Atributs:
-        id:                 Identificador curt de la universitat (ex: "uib").
-        name:               Nom complet (ex: "Universitat de les Illes Balears").
-        algorand_mnemonic:  Frase mnemonica de 25 paraules per al compte Algorand.
-                            Buida si no s'ha configurat la variable d'entorn.
+        id:                   Identificador curt de la universitat (ex: "uib").
+        name:                 Nom complet (ex: "Universitat de les Illes Balears").
+        algorand_mnemonic:    Frase mnemonica de 25 paraules per al compte Algorand.
+        ethereum_private_key: Clau privada Ethereum (hex) per signar transaccions
+                              d'ancoratge. Buida si no s'ha configurat.
     """
     id: str
     name: str
     algorand_mnemonic: str
+    ethereum_private_key: str = ""
 
     @property
     def algorand_address(self) -> str:
         """
         Deriva l'adreca publica Algorand des del mnemonic.
-
-        L'adreca publica es l'identificador del compte a la blockchain
-        i s'usa per registrar la universitat al cens electoral del
-        contracte SistemaVotacion.
 
         Returns:
             Adreca Algorand de 58 caracters (base32 amb checksum).
@@ -72,10 +68,6 @@ class UniversityNode:
         """
         Deriva la clau privada Algorand des del mnemonic.
 
-        La clau privada es necessaria per signar transaccions com a
-        la universitat (ex: votar, enviar resultats). Mai s'ha
-        d'emmagatzemar en text pla fora de variables d'entorn.
-
         Returns:
             Clau privada en format base64 compatible amb algosdk.
 
@@ -84,6 +76,20 @@ class UniversityNode:
         """
         from algosdk import mnemonic
         return mnemonic.to_private_key(self.algorand_mnemonic)
+
+    @property
+    def ethereum_address(self) -> str:
+        """
+        Deriva l'adreca publica Ethereum des de la clau privada.
+
+        Returns:
+            Adreca Ethereum amb prefix 0x (42 caracters).
+
+        Raises:
+            ValueError: Si la clau privada es buida.
+        """
+        from eth_account import Account
+        return Account.from_key(self.ethereum_private_key).address
 
 
 CONFIG_DIR = Path(__file__).parent
@@ -126,11 +132,13 @@ def load_universities() -> tuple[list[UniversityNode], int]:
 
     for uni in config["universities"]:
         algo_mnemonic = os.environ.get(uni["algorand_mnemonic_env"], "")
+        eth_private_key = os.environ.get(uni.get("ethereum_private_key_env", ""), "")
 
         nodes.append(UniversityNode(
             id=uni["id"],
             name=uni["name"],
             algorand_mnemonic=algo_mnemonic,
+            ethereum_private_key=eth_private_key,
         ))
 
     return nodes, threshold_k

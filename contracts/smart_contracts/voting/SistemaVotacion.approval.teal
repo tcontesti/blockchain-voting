@@ -1,0 +1,899 @@
+#pragma version 11
+#pragma typetrack false
+
+// algopy.arc4.ARC4Contract.approval_program() -> uint64:
+main:
+    intcblock 2 0 1 32
+    bytecblock 0x0022 0x80 0x0000000000000000 0x6364 0x7076 0x000d43454e534f5f47454e4552414c 0x6374 0x7067 0x6374000d43454e534f5f47454e4552414c 0x7063 0x706b 0x6563 0x6576
+    // smart_contracts/voting/contract.py:26
+    // class SistemaVotacion(ARC4Contract):
+    txn NumAppArgs
+    bz main___algopy_default_create@14
+    txn OnCompletion
+    !
+    assert
+    txn ApplicationID
+    assert
+    pushbytess 0x99c4e4c6 0x9f880c73 0x0555723a 0x15dd5523 0x161dc96a // method "cargar_censo_global(address[])void", method "crear_propuesta(string,string[],uint64)void", method "cargar_censo_propuesta(string,address[])void", method "votar_propuesta(string)void", method "votar_eleccion(string,string)void"
+    txna ApplicationArgs 0
+    match cargar_censo_global crear_propuesta cargar_censo_propuesta votar_propuesta votar_eleccion
+    err
+
+main___algopy_default_create@14:
+    txn OnCompletion
+    !
+    txn ApplicationID
+    !
+    &&
+    return
+
+
+// smart_contracts.voting.contract.SistemaVotacion.cargar_censo_global[routing]() -> void:
+cargar_censo_global:
+    // smart_contracts/voting/contract.py:54-58
+    // # ==========================================================
+    // # LOGICA DE CARGA DE CENSO GLOBAL
+    // # ==========================================================
+    // # NOTA: SOLO SE PUEDE LLAMAR CON UN MAXIMO DE 7 DIRECCIONES POR TRANSACCION.
+    // @abimethod
+    txna ApplicationArgs 1
+    dupn 2
+    intc_1 // 0
+    extract_uint16 // on error: invalid array length header
+    dup
+    cover 2
+    dup
+    intc_3 // 32
+    *
+    intc_0 // 2
+    +
+    uncover 2
+    len
+    ==
+    assert // invalid number of bytes for arc4.dynamic_array<arc4.static_array<arc4.uint8, 32>>
+    // smart_contracts/voting/contract.py:64-65
+    // # Investigar los *Transaction Groups* para agrupar 16 transacciones en un unico bloque. Asi podemos cargar 112 usuarios de golpe.
+    // assert direcciones.length > 0, "[ERROR] Ha de enviar al menos una direccion para incrementar el censo."
+    dup
+    assert // [ERROR] Ha de enviar al menos una direccion para incrementar el censo.
+    // smart_contracts/voting/contract.py:66
+    // assert direcciones.length <= 7, "[ERROR] Solo se pueden enviar un maximo de 7 por limitaciones de atomicidad. Si necesita agregar mas, llame a esta funcion varias veces."
+    pushint 7
+    <=
+    assert // [ERROR] Solo se pueden enviar un maximo de 7 por limitaciones de atomicidad. Si necesita agregar mas, llame a esta funcion varias veces.
+    intc_1 // 0
+
+cargar_censo_global_for_header@2:
+    // smart_contracts/voting/contract.py:68
+    // for direccion in direcciones:
+    dup
+    dig 2
+    <
+    bz cargar_censo_global_after_for@5
+    dig 2
+    extract 2 0
+    dig 1
+    dup
+    cover 2
+    intc_3 // 32
+    *
+    intc_3 // 32
+    extract3 // on error: index access is out of bounds
+    // smart_contracts/voting/contract.py:69
+    // self._verificar_inexistencia_usuario_censo(arc4.String(CENSO_GENERICO), direccion)
+    bytec 5 // 0x000d43454e534f5f47454e4552414c
+    dig 1
+    callsub _verificar_inexistencia_usuario_censo
+    // smart_contracts/voting/contract.py:70
+    // clave_censo = arc4.Tuple((arc4.String(CENSO_GENERICO), direccion))
+    bytec_0 // 0x0022
+    swap
+    concat
+    // smart_contracts/voting/contract.py:69
+    // self._verificar_inexistencia_usuario_censo(arc4.String(CENSO_GENERICO), direccion)
+    bytec 5 // 0x000d43454e534f5f47454e4552414c
+    // smart_contracts/voting/contract.py:70
+    // clave_censo = arc4.Tuple((arc4.String(CENSO_GENERICO), direccion))
+    concat
+    // smart_contracts/voting/contract.py:71
+    // self.censo_direcciones[clave_censo] = arc4.Bool(True)
+    bytec_3 // 0x6364
+    swap
+    concat
+    bytec_1 // 0x80
+    box_put
+    intc_2 // 1
+    +
+    bury 1
+    b cargar_censo_global_for_header@2
+
+cargar_censo_global_after_for@5:
+    // smart_contracts/voting/contract.py:73
+    // total_actual = self.censo_totales.get(arc4.String(CENSO_GENERICO), default=arc4.UInt64(0))
+    bytec 8 // 0x6374000d43454e534f5f47454e4552414c
+    box_get
+    bytec_2 // 0x0000000000000000
+    cover 2
+    select
+    // smart_contracts/voting/contract.py:74
+    // self.censo_totales[arc4.String(CENSO_GENERICO)] = arc4.UInt64(total_actual.native + direcciones.length)
+    btoi
+    dig 2
+    +
+    itob
+    // smart_contracts/voting/contract.py:73
+    // total_actual = self.censo_totales.get(arc4.String(CENSO_GENERICO), default=arc4.UInt64(0))
+    bytec 8 // 0x6374000d43454e534f5f47454e4552414c
+    // smart_contracts/voting/contract.py:74
+    // self.censo_totales[arc4.String(CENSO_GENERICO)] = arc4.UInt64(total_actual.native + direcciones.length)
+    swap
+    box_put
+    // smart_contracts/voting/contract.py:54-58
+    // # ==========================================================
+    // # LOGICA DE CARGA DE CENSO GLOBAL
+    // # ==========================================================
+    // # NOTA: SOLO SE PUEDE LLAMAR CON UN MAXIMO DE 7 DIRECCIONES POR TRANSACCION.
+    // @abimethod
+    intc_2 // 1
+    return
+
+
+// smart_contracts.voting.contract.SistemaVotacion.crear_propuesta[routing]() -> void:
+crear_propuesta:
+    // smart_contracts/voting/contract.py:77-80
+    // # ==========================================================
+    // # LOGICA DE PROPUESTAS
+    // # ==========================================================
+    // @abimethod
+    txna ApplicationArgs 1
+    dupn 2
+    intc_1 // 0
+    extract_uint16 // on error: invalid array length header
+    intc_0 // 2
+    +
+    swap
+    len
+    ==
+    assert // invalid number of bytes for arc4.dynamic_array<arc4.uint8>
+    txna ApplicationArgs 2
+    dupn 2
+    intc_1 // 0
+    extract_uint16 // on error: invalid array length header
+    dup
+    cover 2
+    intc_0 // 2
+    *
+    swap
+    dup
+    len
+    swap
+    extract 2 0
+    intc_1 // 0
+
+crear_propuesta_for_header@1:
+    // smart_contracts/voting/contract.py:77-80
+    // # ==========================================================
+    // # LOGICA DE PROPUESTAS
+    // # ==========================================================
+    // @abimethod
+    dup
+    dig 5
+    <
+    bz crear_propuesta_after_for@4
+    dupn 2
+    intc_0 // 2
+    *
+    dig 3
+    dup
+    uncover 2
+    extract_uint16 // on error: invalid array encoding
+    dup
+    dig 7
+    dup
+    cover 4
+    ==
+    assert // invalid tail pointer for (len+(len+utf8[])[])
+    dig 1
+    len
+    substring3
+    intc_1 // 0
+    extract_uint16 // on error: invalid array length header
+    intc_0 // 2
+    +
+    +
+    bury 5
+    intc_2 // 1
+    +
+    bury 1
+    b crear_propuesta_for_header@1
+
+crear_propuesta_after_for@4:
+    // smart_contracts/voting/contract.py:77-80
+    // # ==========================================================
+    // # LOGICA DE PROPUESTAS
+    // # ==========================================================
+    // @abimethod
+    dig 3
+    intc_0 // 2
+    +
+    dig 3
+    ==
+    assert // invalid number of bytes for arc4.dynamic_array<arc4.dynamic_array<arc4.uint8>>
+    txna ApplicationArgs 3
+    dup
+    len
+    pushint 8
+    ==
+    assert // invalid number of bytes for arc4.uint64
+    // smart_contracts/voting/contract.py:83
+    // self._verificar_censo(arc4.String(CENSO_GENERICO), arc4.Address(Txn.sender))
+    bytec 5 // 0x000d43454e534f5f47454e4552414c
+    txn Sender
+    callsub _verificar_censo
+    // smart_contracts/voting/contract.py:84
+    // self._validar_propuesta(nombre_propuesta, existente=arc4.Bool(False))
+    dig 7
+    dup
+    pushbytes 0x00
+    callsub _validar_propuesta
+    // smart_contracts/voting/contract.py:86
+    // assert candidatos.length > 0, "[ERROR] Ha de existir al menos un candidato en la propuesta."
+    dig 6
+    assert // [ERROR] Ha de existir al menos un candidato en la propuesta.
+    // smart_contracts/voting/contract.py:87
+    // assert total_censo.native > 0, "[ERROR] El censo total declarado no puede ser 0."
+    dig 1
+    btoi
+    assert // [ERROR] El censo total declarado no puede ser 0.
+    // smart_contracts/voting/contract.py:89
+    // self.propuestas_votos[nombre_propuesta] = arc4.UInt64(0)
+    bytec 4 // 0x7076
+    dig 1
+    concat
+    bytec_2 // 0x0000000000000000
+    box_put
+    // smart_contracts/voting/contract.py:90
+    // self.propuestas_candidatos[nombre_propuesta] = candidatos.copy()
+    bytec 9 // 0x7063
+    dig 1
+    concat
+    dup
+    box_del
+    pop
+    dig 8
+    box_put
+    // smart_contracts/voting/contract.py:92-93
+    // # Guardamos el total que esperamos cargar
+    // self.censo_totales[nombre_propuesta] = total_censo
+    bytec 6 // 0x6374
+    dig 1
+    concat
+    uncover 2
+    box_put
+    // smart_contracts/voting/contract.py:95-96
+    // # Inicializamos el contador de cargados a 0
+    // self.propuestas_censo_cargado[nombre_propuesta] = arc4.UInt64(0)
+    bytec 7 // 0x7067
+    dig 1
+    concat
+    bytec_2 // 0x0000000000000000
+    box_put
+    // smart_contracts/voting/contract.py:98-99
+    // # Guardar quien ha creado la propuesta para despues permitir que solo el sea quien pueda agregar el censo de la propuesta.
+    // self.propuestas_creador[nombre_propuesta] = arc4.Address(Txn.sender)
+    txn Sender
+    bytec 10 // 0x706b
+    uncover 2
+    concat
+    swap
+    box_put
+    // smart_contracts/voting/contract.py:77-80
+    // # ==========================================================
+    // # LOGICA DE PROPUESTAS
+    // # ==========================================================
+    // @abimethod
+    intc_2 // 1
+    return
+
+
+// smart_contracts.voting.contract.SistemaVotacion.cargar_censo_propuesta[routing]() -> void:
+cargar_censo_propuesta:
+    // smart_contracts/voting/contract.py:101
+    // @abimethod
+    txna ApplicationArgs 1
+    dupn 2
+    intc_1 // 0
+    extract_uint16 // on error: invalid array length header
+    intc_0 // 2
+    +
+    dig 1
+    len
+    ==
+    assert // invalid number of bytes for arc4.dynamic_array<arc4.uint8>
+    txna ApplicationArgs 2
+    dup
+    cover 2
+    dup
+    intc_1 // 0
+    extract_uint16 // on error: invalid array length header
+    dup
+    cover 3
+    dup
+    intc_3 // 32
+    *
+    intc_0 // 2
+    +
+    uncover 2
+    len
+    ==
+    assert // invalid number of bytes for arc4.dynamic_array<arc4.static_array<arc4.uint8, 32>>
+    // smart_contracts/voting/contract.py:104
+    // self._validar_propuesta(nombre_propuesta, existente=arc4.Bool(True))
+    dig 1
+    bytec_1 // 0x80
+    callsub _validar_propuesta
+    // smart_contracts/voting/contract.py:105
+    // self._validar_creador_propuesta(nombre_propuesta, arc4.Address(Txn.sender))
+    txn Sender
+    // smart_contracts/voting/contract.py:217
+    // assert self.propuestas_creador[propuesta] == creador, "[ERROR] Solo el creador de la propuesta puede realizar esta accion."
+    bytec 10 // 0x706b
+    dig 3
+    concat
+    box_get
+    assert // check self.propuestas_creador entry exists
+    ==
+    assert // [ERROR] Solo el creador de la propuesta puede realizar esta accion.
+    // smart_contracts/voting/contract.py:107
+    // assert censo_lote.length > 0, "[ERROR] Ha de enviar al menos una direccion para incrementar el censo."
+    dup
+    assert // [ERROR] Ha de enviar al menos una direccion para incrementar el censo.
+    // smart_contracts/voting/contract.py:108
+    // assert censo_lote.length <= 4, "[ERROR] Solo se pueden enviar un maximo de 4 por limitaciones de atomicidad. Si necesita agregar mas, llame a esta funcion varias veces."
+    dup
+    pushint 4
+    <=
+    assert // [ERROR] Solo se pueden enviar un maximo de 4 por limitaciones de atomicidad. Si necesita agregar mas, llame a esta funcion varias veces.
+    // smart_contracts/voting/contract.py:110
+    // cargados_actualmente = self.propuestas_censo_cargado[nombre_propuesta]
+    bytec 7 // 0x7067
+    dig 2
+    concat
+    dup
+    cover 3
+    box_get
+    assert // check self.propuestas_censo_cargado entry exists
+    // smart_contracts/voting/contract.py:111
+    // total_esperado = self.censo_totales[nombre_propuesta]
+    bytec 6 // 0x6374
+    uncover 3
+    concat
+    box_get
+    assert // check self.censo_totales entry exists
+    // smart_contracts/voting/contract.py:221
+    // assert cargados_actualmente.native + longitud_lote <= total_esperado.native, "[ERROR] Superas el limite del censo declarado para esta propuesta."
+    swap
+    btoi
+    uncover 2
+    +
+    dup
+    uncover 2
+    btoi
+    <=
+    assert // [ERROR] Superas el limite del censo declarado para esta propuesta.
+    intc_1 // 0
+
+cargar_censo_propuesta_for_header@2:
+    // smart_contracts/voting/contract.py:114
+    // for direccion in censo_lote:
+    dup
+    dig 4
+    <
+    bz cargar_censo_propuesta_after_for@5
+    dig 4
+    extract 2 0
+    dig 1
+    dup
+    cover 2
+    intc_3 // 32
+    *
+    intc_3 // 32
+    extract3 // on error: index access is out of bounds
+    // smart_contracts/voting/contract.py:115
+    // self._verificar_inexistencia_usuario_censo(nombre_propuesta, direccion)
+    dig 7
+    dup
+    cover 2
+    dig 1
+    callsub _verificar_inexistencia_usuario_censo
+    // smart_contracts/voting/contract.py:117
+    // clave_censo = arc4.Tuple((nombre_propuesta, direccion))
+    bytec_0 // 0x0022
+    swap
+    concat
+    swap
+    concat
+    // smart_contracts/voting/contract.py:118
+    // self.censo_direcciones[clave_censo] = arc4.Bool(True)
+    bytec_3 // 0x6364
+    swap
+    concat
+    // smart_contracts/voting/contract.py:104
+    // self._validar_propuesta(nombre_propuesta, existente=arc4.Bool(True))
+    bytec_1 // 0x80
+    // smart_contracts/voting/contract.py:118
+    // self.censo_direcciones[clave_censo] = arc4.Bool(True)
+    box_put
+    intc_2 // 1
+    +
+    bury 1
+    b cargar_censo_propuesta_for_header@2
+
+cargar_censo_propuesta_after_for@5:
+    // smart_contracts/voting/contract.py:120-121
+    // # Actualizamos el contador de direcciones cargadas
+    // self.propuestas_censo_cargado[nombre_propuesta] = arc4.UInt64(cargados_actualmente.native + censo_lote.length)
+    dig 1
+    itob
+    dig 3
+    swap
+    box_put
+    // smart_contracts/voting/contract.py:101
+    // @abimethod
+    intc_2 // 1
+    return
+
+
+// smart_contracts.voting.contract.SistemaVotacion.votar_propuesta[routing]() -> void:
+votar_propuesta:
+    intc_1 // 0
+    pushbytes ""
+    dup
+    // smart_contracts/voting/contract.py:123-126
+    // # ==========================================================
+    // # LOGICA DE VOTAR PROPUESTA
+    // # ==========================================================
+    // @abimethod
+    txna ApplicationArgs 1
+    dupn 2
+    intc_1 // 0
+    extract_uint16 // on error: invalid array length header
+    intc_0 // 2
+    +
+    dig 1
+    len
+    ==
+    assert // invalid number of bytes for arc4.dynamic_array<arc4.uint8>
+    // smart_contracts/voting/contract.py:129
+    // self._validar_propuesta(nombre_propuesta, existente=arc4.Bool(True))
+    dup
+    bytec_1 // 0x80
+    callsub _validar_propuesta
+    // smart_contracts/voting/contract.py:131
+    // direccion_sender = arc4.Address(Txn.sender)
+    txn Sender
+    // smart_contracts/voting/contract.py:132
+    // self._verificar_censo(nombre_propuesta, direccion_sender)
+    dup2
+    callsub _verificar_censo
+    // smart_contracts/voting/contract.py:212
+    // assert self.propuestas_censo_cargado[propuesta].native == self.censo_totales[propuesta].native, "[ERROR] La propuesta aun se esta configurando (censo incompleto)."
+    bytec 7 // 0x7067
+    dig 2
+    concat
+    box_get
+    assert // check self.propuestas_censo_cargado entry exists
+    btoi
+    bytec 6 // 0x6374
+    dig 3
+    concat
+    dup
+    box_get
+    assert // check self.censo_totales entry exists
+    btoi
+    uncover 2
+    ==
+    assert // [ERROR] La propuesta aun se esta configurando (censo incompleto).
+    // smart_contracts/voting/contract.py:213
+    // assert propuesta not in self.elecciones_candidatos, "[ERROR] La propuesta ya ha pasado a ser una eleccion."
+    bytec 11 // 0x6563
+    dig 3
+    concat
+    dup
+    cover 4
+    box_len
+    bury 1
+    !
+    assert // [ERROR] La propuesta ya ha pasado a ser una eleccion.
+    // smart_contracts/voting/contract.py:225
+    // clave = arc4.Tuple((propuesta, votante))
+    bytec_0 // 0x0022
+    uncover 2
+    concat
+    dig 2
+    concat
+    // smart_contracts/voting/contract.py:226
+    // assert clave not in self.propuestas_registros_votos, "[ERROR] Esta direccion ya ha votado."
+    pushbytes 0x7072
+    swap
+    concat
+    dup
+    box_len
+    bury 1
+    !
+    assert // [ERROR] Esta direccion ya ha votado.
+    // smart_contracts/voting/contract.py:129
+    // self._validar_propuesta(nombre_propuesta, existente=arc4.Bool(True))
+    bytec_1 // 0x80
+    // smart_contracts/voting/contract.py:138
+    // self.propuestas_registros_votos[clave_registro] = arc4.Bool(True)
+    box_put
+    // smart_contracts/voting/contract.py:139
+    // self.propuestas_votos[nombre_propuesta] = arc4.UInt64(self.propuestas_votos[nombre_propuesta].native + 1)
+    bytec 4 // 0x7076
+    uncover 2
+    concat
+    dup
+    box_get
+    assert // check self.propuestas_votos entry exists
+    btoi
+    intc_2 // 1
+    +
+    dup
+    itob
+    uncover 2
+    swap
+    box_put
+    // smart_contracts/voting/contract.py:149-150
+    // # Calculamos la mitad del censo como umbral (arredondeado hacia arriba)
+    // total_censo = self.censo_totales[nombre_propuesta].native
+    swap
+    box_get
+    pop
+    btoi
+    // smart_contracts/voting/contract.py:151
+    // threshold_propuesta = (total_censo // 2) + (total_censo % 2)
+    dup
+    intc_0 // 2
+    /
+    swap
+    intc_0 // 2
+    %
+    +
+    // smart_contracts/voting/contract.py:154-155
+    // # Si no se llega al umbral, no se genera la eleccion
+    // if votos_propuesta < threshold_propuesta:
+    <
+    bnz votar_propuesta_after_inlined_smart_contracts.voting.contract.SistemaVotacion._generar_eleccion@11
+    // smart_contracts/voting/contract.py:158
+    // candidatos = self.propuestas_candidatos[nombre_propuesta].copy()
+    bytec 9 // 0x7063
+    dig 2
+    concat
+    dup
+    box_get
+    assert // check self.propuestas_candidatos entry exists
+    // smart_contracts/voting/contract.py:159
+    // self.elecciones_candidatos[nombre_propuesta] = candidatos.copy()
+    dig 2
+    dup
+    box_del
+    pop
+    swap
+    box_put
+    // smart_contracts/voting/contract.py:161
+    // votos_iniciales = arc4.DynamicArray[arc4.UInt64]()
+    pushbytes 0x0000
+    bury 6
+    // smart_contracts/voting/contract.py:162
+    // for i in urange(candidatos.length):
+    intc_1 // 0
+    intc_0 // 2
+    box_extract
+    btoi
+    bury 4
+    intc_1 // 0
+    bury 3
+
+votar_propuesta_for_header@8:
+    // smart_contracts/voting/contract.py:162
+    // for i in urange(candidatos.length):
+    dig 2
+    dig 4
+    <
+    bz votar_propuesta_after_for@10
+    dig 4
+    dup
+    intc_1 // 0
+    extract_uint16
+    // smart_contracts/voting/contract.py:163
+    // votos_iniciales.append(arc4.UInt64(0))
+    intc_2 // 1
+    +
+    itob
+    extract 6 0
+    replace2 0
+    // smart_contracts/voting/contract.py:163
+    // votos_iniciales.append(arc4.UInt64(0))
+    bytec_2 // 0x0000000000000000
+    concat
+    bury 5
+    // smart_contracts/voting/contract.py:162
+    // for i in urange(candidatos.length):
+    dig 2
+    intc_2 // 1
+    +
+    bury 3
+    b votar_propuesta_for_header@8
+
+votar_propuesta_after_for@10:
+    // smart_contracts/voting/contract.py:165
+    // self.elecciones_votos[nombre_propuesta] = votos_iniciales.copy()
+    bytec 12 // 0x6576
+    dig 2
+    concat
+    dup
+    box_del
+    pop
+    dig 5
+    box_put
+
+votar_propuesta_after_inlined_smart_contracts.voting.contract.SistemaVotacion._generar_eleccion@11:
+    // smart_contracts/voting/contract.py:123-126
+    // # ==========================================================
+    // # LOGICA DE VOTAR PROPUESTA
+    // # ==========================================================
+    // @abimethod
+    intc_2 // 1
+    return
+
+
+// smart_contracts.voting.contract.SistemaVotacion.votar_eleccion[routing]() -> void:
+votar_eleccion:
+    // smart_contracts/voting/contract.py:168-171
+    // # ==========================================================
+    // # LOGICA DE VOTACION
+    // # ==========================================================
+    // @abimethod
+    txna ApplicationArgs 1
+    dupn 2
+    intc_1 // 0
+    extract_uint16 // on error: invalid array length header
+    intc_0 // 2
+    +
+    dig 1
+    len
+    ==
+    assert // invalid number of bytes for arc4.dynamic_array<arc4.uint8>
+    txna ApplicationArgs 2
+    dup
+    cover 2
+    dup
+    intc_1 // 0
+    extract_uint16 // on error: invalid array length header
+    intc_0 // 2
+    +
+    swap
+    len
+    ==
+    assert // invalid number of bytes for arc4.dynamic_array<arc4.uint8>
+    // smart_contracts/voting/contract.py:174
+    // direccion_sender = arc4.Address(Txn.sender)
+    txn Sender
+    dup
+    cover 2
+    // smart_contracts/voting/contract.py:175
+    // self._verificar_censo(nombre_eleccion, direccion_sender)
+    dig 1
+    swap
+    callsub _verificar_censo
+    // smart_contracts/voting/contract.py:230
+    // assert nombre_eleccion in self.elecciones_candidatos, "[ERROR] La eleccion no existe."
+    bytec 11 // 0x6563
+    swap
+    concat
+    dupn 2
+    box_len
+    bury 1
+    assert // [ERROR] La eleccion no existe.
+    // smart_contracts/voting/contract.py:236
+    // indice_candidato = arc4.UInt64(0)
+    bytec_2 // 0x0000000000000000
+    swap
+    // smart_contracts/voting/contract.py:237
+    // for c in candidatos:
+    intc_1 // 0
+    intc_0 // 2
+    box_extract
+    btoi
+    intc_1 // 0
+
+votar_eleccion_for_header@4:
+    // smart_contracts/voting/contract.py:237
+    // for c in candidatos:
+    dupn 2
+    dig 3
+    <
+    assert // [ERROR] El candidato no pertenece a esta eleccion.
+    intc_0 // 2
+    *
+    intc_0 // 2
+    +
+    dig 4
+    dup
+    uncover 2
+    intc_0 // 2
+    box_extract
+    btoi
+    intc_0 // 2
+    +
+    dup2
+    intc_0 // 2
+    box_extract
+    btoi
+    intc_0 // 2
+    +
+    box_extract
+    // smart_contracts/voting/contract.py:238
+    // if c == candidato:
+    dig 6
+    ==
+    bz votar_eleccion_after_if_else@6
+    // smart_contracts/voting/contract.py:246
+    // clave = arc4.Tuple((propuesta, votante))
+    bytec_0 // 0x0022
+    dig 5
+    concat
+    dig 7
+    dup
+    cover 2
+    concat
+    // smart_contracts/voting/contract.py:247
+    // assert clave not in self.elecciones_registros_votos, "[ERROR] Esta direccion ya ha votado en esta eleccion."
+    pushbytes 0x6572
+    swap
+    concat
+    dup
+    box_len
+    bury 1
+    !
+    assert // [ERROR] Esta direccion ya ha votado en esta eleccion.
+    // smart_contracts/voting/contract.py:184
+    // self.elecciones_registros_votos[clave_registro] = arc4.Bool(True)
+    bytec_1 // 0x80
+    box_put
+    // smart_contracts/voting/contract.py:186
+    // votos = self.elecciones_votos[nombre_eleccion].copy()
+    bytec 12 // 0x6576
+    swap
+    concat
+    // smart_contracts/voting/contract.py:187
+    // votos[indice_candidato.native] = arc4.UInt64(votos[indice_candidato.native].native + 1)
+    dig 3
+    btoi
+    // smart_contracts/voting/contract.py:186-187
+    // votos = self.elecciones_votos[nombre_eleccion].copy()
+    // votos[indice_candidato.native] = arc4.UInt64(votos[indice_candidato.native].native + 1)
+    pushint 8
+    *
+    intc_0 // 2
+    +
+    dup2
+    pushint 8
+    box_extract // on error: index out of bounds
+    // smart_contracts/voting/contract.py:187
+    // votos[indice_candidato.native] = arc4.UInt64(votos[indice_candidato.native].native + 1)
+    btoi
+    intc_2 // 1
+    +
+    itob
+    // smart_contracts/voting/contract.py:187-188
+    // votos[indice_candidato.native] = arc4.UInt64(votos[indice_candidato.native].native + 1)
+    // self.elecciones_votos[nombre_eleccion] = votos.copy()
+    box_replace // on error: index out of bounds
+    // smart_contracts/voting/contract.py:168-171
+    // # ==========================================================
+    // # LOGICA DE VOTACION
+    // # ==========================================================
+    // @abimethod
+    intc_2 // 1
+    return
+
+votar_eleccion_after_if_else@6:
+    // smart_contracts/voting/contract.py:240
+    // indice_candidato = arc4.UInt64(indice_candidato.native + 1)
+    dig 2
+    btoi
+    intc_2 // 1
+    +
+    itob
+    bury 3
+    dup
+    intc_2 // 1
+    +
+    bury 1
+    b votar_eleccion_for_header@4
+
+
+// smart_contracts.voting.contract.SistemaVotacion._verificar_censo(censo: bytes, votante: bytes) -> void:
+_verificar_censo:
+    // smart_contracts/voting/contract.py:190-193
+    // # ==========================================================
+    // # VERIFICADORES
+    // # ==========================================================
+    // def _verificar_censo(self, censo: arc4.String, votante: arc4.Address) -> None:
+    proto 2 0
+    // smart_contracts/voting/contract.py:195
+    // clave = arc4.Tuple((censo, votante))
+    bytec_0 // 0x0022
+    frame_dig -1
+    concat
+    frame_dig -2
+    concat
+    // smart_contracts/voting/contract.py:196
+    // assert clave in self.censo_direcciones, "[ERROR] No estas en el censo para realizar esta accion."
+    bytec_3 // 0x6364
+    swap
+    concat
+    box_len
+    bury 1
+    assert // [ERROR] No estas en el censo para realizar esta accion.
+    retsub
+
+
+// smart_contracts.voting.contract.SistemaVotacion._verificar_inexistencia_usuario_censo(censo: bytes, votante: bytes) -> void:
+_verificar_inexistencia_usuario_censo:
+    // smart_contracts/voting/contract.py:198
+    // def _verificar_inexistencia_usuario_censo(self, censo: arc4.String, votante: arc4.Address) -> None:
+    proto 2 0
+    // smart_contracts/voting/contract.py:200
+    // clave = arc4.Tuple((censo, votante))
+    bytec_0 // 0x0022
+    frame_dig -1
+    concat
+    frame_dig -2
+    concat
+    // smart_contracts/voting/contract.py:201
+    // assert clave not in self.censo_direcciones, "[ERROR] La direccion ya esta en el censo para esta accion."
+    bytec_3 // 0x6364
+    swap
+    concat
+    box_len
+    bury 1
+    !
+    assert // [ERROR] La direccion ya esta en el censo para esta accion.
+    retsub
+
+
+// smart_contracts.voting.contract.SistemaVotacion._validar_propuesta(propuesta: bytes, existente: bytes) -> void:
+_validar_propuesta:
+    // smart_contracts/voting/contract.py:203
+    // def _validar_propuesta(self, propuesta: arc4.String, existente: arc4.Bool) -> None:
+    proto 2 0
+    // smart_contracts/voting/contract.py:205
+    // if existente.native:
+    frame_dig -1
+    intc_1 // 0
+    getbit
+    bz _validar_propuesta_else_body@2
+    // smart_contracts/voting/contract.py:206
+    // assert propuesta in self.propuestas_votos, "[ERROR] La propuesta de elecciones no existe."
+    bytec 4 // 0x7076
+    frame_dig -2
+    concat
+    box_len
+    bury 1
+    assert // [ERROR] La propuesta de elecciones no existe.
+    retsub
+
+_validar_propuesta_else_body@2:
+    // smart_contracts/voting/contract.py:208
+    // assert propuesta not in self.propuestas_votos, "[ERROR] La propuesta de elecciones ya existe."
+    bytec 4 // 0x7076
+    frame_dig -2
+    concat
+    box_len
+    bury 1
+    !
+    assert // [ERROR] La propuesta de elecciones ya existe.
+    retsub

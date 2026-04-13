@@ -1,0 +1,190 @@
+{
+  "brand": "Demochain",
+  "nav": {
+    "home": "Inicio",
+    "proposals": "Propuestas",
+    "newProposal": "Nueva propuesta",
+    "howItWorks": "Cómo funciona"
+  },
+  "common": {
+    "back": "Atrás",
+    "cancel": "Cancelar",
+    "continue": "Continuar",
+    "submit": "Enviar",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "save": "Guardar",
+    "review": "Revisar",
+    "confirm": "Confirmar",
+    "close": "Cerrar",
+    "search": "Buscar",
+    "filter": "Filtro",
+    "all": "Todas",
+    "options": "Opciones",
+    "startDate": "Fecha de inicio",
+    "endDate": "Fecha de fin",
+    "title": "Título",
+    "description": "Descripción",
+    "verified": "Verificado",
+    "copy": "Copiar",
+    "copied": "Copiado"
+  },
+  "theme": {
+    "toggle": "Cambiar tema",
+    "light": "Claro",
+    "dark": "Oscuro"
+  },
+  "language": {
+    "label": "Idioma",
+    "en": "Inglés",
+    "es": "Español",
+    "ca": "Catalán"
+  },
+  "landing": {
+    "hero": {
+      "eyebrow": "Voto preferencial para todos",
+      "titleA": "Ordena.",
+      "titleB": "Decide.",
+      "titleC": "Verifica",
+      "subtitle": "Propón elecciones, ordena tus preferencias y confía en el resultado. Una plataforma abierta donde la comunidad decide qué importa — y cómo se mide.",
+      "ctaPrimary": "Ver propuestas",
+      "ctaSecondary": "Cómo funciona",
+      "counter": "voces emitidas hoy"
+    },
+    "how": {
+      "title": "Tres pasos, un resultado claro",
+      "steps": [
+        { "title": "Propón", "text": "Cualquiera puede proponer una elección — título, fechas y las opciones que los votantes clasificarán." },
+        { "title": "Aprueba", "text": "La comunidad vota para aprobarla. Si alcanza los dos tercios, se abre en las fechas fijadas." },
+        { "title": "Ordena y decide", "text": "Los votantes arrastran las opciones a su orden de preferencia. La ganadora refleja lo que la mayoría realmente quiere." }
+      ]
+    },
+    "features": {
+      "title": "Pensado para votantes, no para proveedores",
+      "items": [
+        { "title": "Voto preferencial", "text": "Clasifica tantas opciones como quieras. Sin votos perdidos ni efecto spoiler." },
+        { "title": "Aprobación comunitaria", "text": "Las propuestas solo se convierten en elecciones con dos tercios de apoyo — no decide un solo administrador." },
+        { "title": "Resultados abiertos", "text": "Cada clasificación es pública. Ve al ganador, a los segundos y cómo de reñida estuvo la carrera." },
+        { "title": "Verificable de forma independiente", "text": "Cada papeleta recibe un recibo que cualquiera puede comprobar — anclado en Algorand para que el recuento no pueda reescribirse." },
+        { "title": "Multilingüe", "text": "Vota en inglés, español o catalán. Tu voz, tu idioma." },
+        { "title": "Accesible por diseño", "text": "Clasificación con teclado, modo oscuro y soporte de movimiento reducido." }
+      ]
+    },
+    "cta": {
+      "title": "¿Listo para dejar decidir a la gente?",
+      "text": "Redacta una propuesta en minutos. La comunidad se encarga del resto.",
+      "button": "Crear propuesta"
+    },
+    "footer": {
+      "tagline": "Herramientas democráticas, construidas en abierto.",
+      "rights": "Todos los derechos reservados."
+    }
+  },
+  "proposals": {
+    "title": "Propuestas",
+    "subtitle": "Explora las elecciones propuestas por la comunidad.",
+    "new": "Nueva propuesta",
+    "empty": "Ninguna propuesta coincide con tus filtros.",
+    "filters": {
+      "status": "Estado",
+      "active": "Activas",
+      "all": "Todas",
+      "pending": "Pendiente de aprobación",
+      "approved": "Aprobada",
+      "voting": "Votación abierta",
+      "closed": "Cerrada"
+    },
+    "status": {
+      "pending": "Pendiente de aprobación",
+      "approved": "Aprobada",
+      "voting": "Votación abierta",
+      "closed": "Cerrada"
+    },
+    "approval": {
+      "label": "Aprobación de la comunidad",
+      "threshold": "se necesita 2/3",
+      "reached": "Umbral alcanzado",
+      "of": "de"
+    },
+    "card": {
+      "options": "{{count}} opción",
+      "options_other": "{{count}} opciones",
+      "runs": "Del {{start}} al {{end}}"
+    }
+  },
+  "proposal": {
+    "summary": "Resumen",
+    "dates": "Ventana de votación",
+    "options": "Opciones para clasificar",
+    "approvalCta": "Votar para aprobar",
+    "voteCta": "Emitir voto preferencial",
+    "resultsCta": "Ver resultados",
+    "alreadyVoted": "Tu voto ha sido registrado",
+    "closedNotice": "Esta elección ha finalizado.",
+    "waitingToStart": "La votación abre pronto",
+    "votingOpensOn": "La ventana de votación abre el {{date}}. Vuelve entonces para emitir tu voto preferencial."
+  },
+  "newProposal": {
+    "title": "Crear una nueva propuesta",
+    "step": "Paso {{current}} de {{total}}",
+    "steps": {
+      "basics": "Básico",
+      "dates": "Fechas",
+      "options": "Opciones",
+      "review": "Revisión"
+    },
+    "fields": {
+      "title": "Título de la propuesta",
+      "titlePlaceholder": "p. ej. Beca comunitaria 2026",
+      "description": "Descripción",
+      "descriptionPlaceholder": "Describe qué van a decidir los votantes…",
+      "start": "La votación empieza",
+      "end": "La votación termina",
+      "option": "Opción {{n}}",
+      "optionPlaceholder": "Describe una opción",
+      "addOption": "Añadir opción",
+      "removeOption": "Quitar"
+    },
+    "submit": "Publicar propuesta"
+  },
+  "vote": {
+    "title": "Ordena tus preferencias",
+    "subtitle": "Arrastra las opciones en tu orden de preferencia. Tu primera elección va arriba.",
+    "keyboardHint": "Consejo: usa Tab para enfocar una opción, luego Espacio + flechas para moverla.",
+    "position": "Posición {{n}}",
+    "submit": "Enviar clasificación",
+    "alreadyVoted": "Ya has votado en esta elección",
+    "alreadyVotedHint": "Cada dirección solo puede votar una vez. Tu voto preferencial ha quedado registrado en la cadena.",
+    "confirm": {
+      "title": "Voto enviado",
+      "text": "Tu papeleta preferencial ha sido registrada. Guarda el recibo para verificarla cuando quieras.",
+      "receipt": "Recibo",
+      "viewResults": "Ver resultados",
+      "done": "Listo"
+    }
+  },
+  "results": {
+    "title": "Resultados",
+    "live": "En vivo",
+    "voters": "{{count}} votante",
+    "voters_other": "{{count}} votantes",
+    "votersLabel": "votantes hasta ahora",
+    "inProgress": "Elección en curso",
+    "inProgressHint": "Los resultados estarán disponibles cuando cierre la elección. Los votos están almacenados en la cadena.",
+    "noVotes": "No se emitió ningún voto en esta elección.",
+    "firstChoiceVotes": "Votos de primera opción",
+    "firstChoiceShort": "1ª opción",
+    "irvNote": "Ganador determinado por Voto por Segunda Vuelta Instantánea. La barra muestra votos de primera opción.",
+    "winner": "Ganador",
+    "ranking": "Clasificación completa",
+    "place": "#{{n}}",
+    "verify": {
+      "title": "Verificar un voto",
+      "text": "Pega un ID de recibo para comprobar de forma independiente que una papeleta fue contada.",
+      "placeholder": "p. ej. DMCX-4F7A-92E1",
+      "button": "Verificar",
+      "success": "Esta papeleta fue registrada y contada.",
+      "ranked": "Clasificada el"
+    }
+  }
+}

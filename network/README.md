@@ -1,6 +1,6 @@
 # Network: Arquitectura de Nodes Universitaris
 
-Simulacio de la xarxa institucional descrita al document tecnic (§3.2.2, §7.3.3, §9.7, §10.2). Tres universitats operen com a nodes independents que llegeixen l'estat electoral d'Algorand i calculen hashes deterministics per a futur ancoratge.
+Xarxa institucional descrita al document tecnic (BLOCKCHAIN.pdf §3.2.2, §7.3.3, §9.7, §10.2). Cada universitat opera com a node independent que llegeix l'estat electoral d'Algorand, calcula hashes SHA-256 deterministics, verifica el consens K-de-N, i envia el hash al contracte NotaryContract d'Ethereum per a l'ancoratge.
 
 ## Arquitectura
 
@@ -16,125 +16,178 @@ Simulacio de la xarxa institucional descrita al document tecnic (§3.2.2, §7.3.
 ┌────────────┐  ┌────────────┐  ┌────────────┐
 │ Node UIB   │  │ Node UPC   │  │ Node UAB   │
 │ (Python)   │  │ (Python)   │  │ (Python)   │
-│ Lector +   │  │ Lector +   │  │ Lector +   │
-│ Hasher     │  │ Hasher     │  │ Hasher     │
-└────────────┘  └────────────┘  └────────────┘
+│ Reader  +  │  │ Reader  +  │  │ Reader  +  │
+│ Hasher  +  │  │ Hasher  +  │  │ Hasher  +  │
+│ Consensus  │  │ Consensus  │  │ Consensus  │
+└──────┬─────┘  └──────┬─────┘  └──────┬─────┘
+       │               │               │
+       └───────────────┼───────────────┘
+                       │ ECDSA + JSON-RPC
+                       ▼
+          ┌─────────────────────────┐
+          │  Ethereum (Sepolia)     │
+          │  NotaryContract         │
+          │  K-de-N consensus       │
+          │  Whitelist + Anchoring  │
+          └─────────────────────────┘
 ```
 
-**Principi fonamental:** el contracte `SistemaVotacion` es desplega una sola vegada. Cada universitat es connecta de forma independent com a lector, sense necessitat de reiniciar res ni de modificar el contracte.
+**Principi fonamental:** el contracte `SistemaVotacion` es desplega una sola vegada. Cada universitat s'hi connecta de forma independent com a node lector. Universitats noves es poden afegir **en calent** sense reiniciar cap servei.
 
-**Universitats simulades:**
+## Universitats simulades (per defecte)
 
-| ID  | Nom                                    |
-|-----|----------------------------------------|
-| UIB | Universitat de les Illes Balears        |
-| UPC | Universitat Politecnica de Catalunya    |
-| UAB | Universitat Autonoma de Barcelona       |
+| ID  | Nom                                    | Algorand Key          | Ethereum Key          |
+|-----|----------------------------------------|-----------------------|-----------------------|
+| UIB | Universitat de les Illes Balears       | `UIB_ALGO_MNEMONIC`   | `UIB_ETH_PRIVATE_KEY` |
+| UPC | Universitat Politecnica de Catalunya   | `UPC_ALGO_MNEMONIC`   | `UPC_ETH_PRIVATE_KEY` |
+| UAB | Universitat Autonoma de Barcelona      | `UAB_ALGO_MNEMONIC`   | `UAB_ETH_PRIVATE_KEY` |
+
+**Llindar de consens:** K=2 de N=3 (recalculat automaticament com `ceil(2/3 * N)` en afegir universitats).
 
 ## Estructura de directoris
 
 ```
 network/
 ├── config/
-│   ├── universities.json       # Definicio de les 3 universitats i llindar K=2
-│   └── network_config.py       # Carregador Python: llegeix JSON + variables d'entorn
+│   ├── universities.json          # Definicio de les universitats i llindar K
+│   └── network_config.py          # UniversityNode dataclass + load_universities()
 ├── anchoring/
-│   ├── algorand_reader.py      # Llegeix estat d'eleccions des de box storage (ARC-4)
-│   ├── hasher.py               # Hash SHA-256 deterministic (JSON canonic)
-│   ├── models.py               # ElectionState dataclass
-│   └── requirements.txt        # py-algorand-sdk, python-dotenv
-├── ethereum/                   # Buit -- per desenvolupar (NotaryContract, etc.)
+│   ├── models.py                  # ElectionState dataclass
+│   ├── algorand_reader.py         # Lectura d'eleccions des de box storage (ARC-4)
+│   ├── hasher.py                  # Hash SHA-256 deterministic (JSON canonic)
+│   ├── consensus.py               # Logica de consens K-de-N
+│   ├── ethereum_submitter.py      # Enviament de hashes a Ethereum (Web3.py)
+│   └── anchoring_service.py       # Orquestrador del flux complet per node
+├── ethereum/                      # Reservat per al NotaryContract (Solidity)
 ├── scripts/
-│   └── setup_universities.py   # Genera comptes Algorand per a les 3 universitats
-├── test_integration.py         # 12 tests (hasher + ARC-4 decoder)
-└── .env.example                # Plantilla de variables d'entorn
-```
-
-## Inici rapid
-
-### 1. Instal·lar dependencies
-
-```bash
-pip install py-algorand-sdk python-dotenv
-```
-
-### 2. Executar tests
-
-```bash
-# Tests d'integracio (hasher + ARC-4, autonoms sense dependencies externes)
-cd network
-python test_integration.py
-```
-
-### 3. Configurar la xarxa
-
-```bash
-# Generar comptes Algorand per a les 3 universitats
-python network/scripts/setup_universities.py
-```
-
-Aixo crea `network/.env` amb:
-- 3 mnemonics d'Algorand (un per universitat)
-- Adreces per configurar el cens
-
-### 4. Desplegar contracte Algorand
-
-```bash
-algokit localnet start
-cd contracts
-algokit project run build
-python scripts/deploy.py            # → APP_ID
+│   ├── setup_universities.py      # Genera comptes Algorand+Ethereum per a totes les universitats
+│   ├── add_university.py          # Afegeix una universitat en calent (claus + JSON + .env + cens)
+│   └── simulate_election.py       # Simulacio completa del cicle electoral
+├── test_integration.py            # 17 tests autonoms (hasher + ARC-4 + consens)
+├── .env.example                   # Plantilla de variables d'entorn
+└── .env                           # Credencials reals (NO pujar al repositori)
 ```
 
 ---
 
-## Com s'uneix una nova universitat a la xarxa
+## Inici rapid
 
-El disseny del sistema permet que una nova universitat s'incorpori a una xarxa ja en funcionament sense aturar ni modificar el contracte desplegat. El contracte `SistemaVotacion` es desplega una sola vegada per l'organitzador; les universitats nomes s'hi connecten com a nodes lectors independents.
+### Prerequisits
 
-### Flux d'incorporacio
+- Python 3.12+
+- [AlgoKit](https://github.com/algorandfoundation/algokit-cli) instal·lat
+- Docker (per a AlgoKit localnet)
+- Poetry (gestor de dependencies del projecte)
 
-```
-Nova universitat vol unir-se
-         │
-         ▼
-1. Generar compte Algorand propi
-   python network/scripts/setup_universities.py
-   → Crea un parell de claus (mnemonic + adreca publica)
-   → Escriu les credencials a network/.env
-         │
-         ▼
-2. Comunicar l'adreca Algorand a l'organitzador electoral
-   (per correu, formulari, o qualsevol canal segur)
-         │
-         ▼
-3. L'organitzador afegeix l'adreca al cens del contracte
-   python contracts/scripts/populate_census.py \
-       --addresses <ADRECA_NOVA_UNIVERSITAT>
-   → Crida cargar_censo_global() sobre el contracte existent
-   → NO requereix redesplegament ni reinici
-         │
-         ▼
-4. La universitat configura el seu .env local
-   APP_ID=<el mateix APP_ID existent>
-   ALGOD_SERVER=<endpoint del node Algorand compartit>
-   X_ALGO_MNEMONIC=<el mnemonic generat al pas 1>
-         │
-         ▼
-5. La universitat ja pot llegir eleccions i calcular hashes
-   (AlgorandElectionReader connectat al contracte en viu)
+### Pas 1: Instal·lar dependencies
+
+```bash
+cd contracts/
+poetry install
+poetry run pip install eth-account    # Per a claus Ethereum
 ```
 
-### Que NO cal fer
+### Pas 2: Tests autonoms (sense dependencies externes)
 
-- No cal reiniciar el contracte ni redeplegar-lo.
-- No cal que les altres universitats facin cap canvi.
-- No cal modificar cap fitxer de configuracio del sistema.
-- El cens es additiu: afegir una universitat nova no afecta les existents.
+```bash
+cd network/
+python test_integration.py
+# Resultat esperat: 17 tests passats, 0 tests fallats
+```
 
-### Limitacio actual i TODO
+### Pas 3: Arrancar Algorand localnet
 
-> **TODO:** `config/universities.json` te les tres universitats (UIB, UPC, UAB) hardcoded. Per permetre que qualsevol universitat s'incorpori dinamicament sense modificar codi, cal refactoritzar `network_config.py` i `setup_universities.py` per acceptar un nombre variable de nodes i llegir la llista de participants directament del cens del contracte (box `ct` / `cd`) en lloc d'un fitxer JSON fix.
+```bash
+algokit localnet start
+```
+
+### Pas 4: Generar comptes per a les universitats
+
+```bash
+cd contracts/
+poetry run python ../network/scripts/setup_universities.py
+```
+
+Aixo genera per a cada universitat:
+- Mnemonic Algorand (25 paraules)
+- Clau privada Ethereum (ECDSA)
+- Tot escrit a `network/.env`
+
+### Pas 5: Compilar i desplegar el contracte
+
+```bash
+cd contracts/
+algokit compile py smart_contracts/voting/contract.py
+poetry run python scripts/deploy.py
+```
+
+El deploy imprimeix l'`APP_ID`. Actualitza `network/.env`:
+```
+APP_ID=<el valor que ha imprès>
+```
+
+### Pas 6: Executar la simulacio electoral completa
+
+```bash
+cd contracts/
+poetry run python ../network/scripts/simulate_election.py
+```
+
+La simulacio executa 7 fases:
+
+| Fase | Accio |
+|------|-------|
+| Pre  | Finança el compte del contracte (MBR) |
+| 0    | Genera i finança 8 comptes d'usuari |
+| 1    | Carrega els 8 usuaris al cens global |
+| 2    | L'usuari #1 proposa l'eleccio |
+| 3    | L'usuari #1 carrega el cens de la proposta |
+| 4    | Usuaris voten la proposta fins assolir majoria (eleccio generada automaticament) |
+| 5    | Els 8 usuaris voten a l'eleccio |
+| 6    | Nodes universitaris llegeixen resultats, calculen hash i verifiquen consens K-de-N |
+
+---
+
+## Afegir universitats en calent
+
+Es poden afegir universitats mentre la xarxa esta en funcionament, **sense reiniciar cap servei**.
+
+### Nomes configuracio (claus + JSON + .env)
+
+```bash
+cd contracts/
+poetry run python ../network/scripts/add_university.py \
+  --id uv --name "Universitat de Valencia"
+```
+
+### Configuracio + registre al cens del contracte Algorand
+
+```bash
+poetry run python ../network/scripts/add_university.py \
+  --id uv --name "Universitat de Valencia" --register
+```
+
+### Que fa `add_university.py`
+
+1. Valida que l'ID no existeixi ja
+2. Genera claus Algorand (mnemonic) + Ethereum (ECDSA)
+3. Afegeix l'entrada a `universities.json`
+4. Recalcula `threshold_k = ceil(2/3 * N)` automaticament
+5. Afegeix les credencials a `.env` (sense sobreescriure les existents)
+6. Amb `--register`: crida `cargar_censo_global()` al contracte Algorand per registrar l'adreca al cens
+
+### Recalcul automatic del llindar K
+
+| Universitats (N) | Llindar (K) |
+|:-:|:-:|
+| 3 | 2 |
+| 4 | 3 |
+| 5 | 4 |
+| 7 | 5 |
+
+### Recarga en calent
+
+Els scripts recarreguen la configuracio des de disc a cada execucio. Si un proces ja esta en funcionament (ex: `simulate_election.py`), la fase 6 recarrega `universities.json` i `.env` automaticament abans de verificar el consens, detectant universitats afegides sense reiniciar.
 
 ---
 
@@ -145,7 +198,7 @@ Nova universitat vol unir-se
 Llegeix l'estat de les eleccions des del box storage del contracte:
 - Descodifica `DynamicArray[String]` (candidats) des de boxes amb prefix `ec`
 - Descodifica `DynamicArray[UInt64]` (vots) des de boxes amb prefix `ev`
-- Retorna un `ElectionState` amb nom, candidats i vots
+- Retorna un `ElectionState` amb nom, candidats, vots i round
 
 ### Hasher (`anchoring/hasher.py`)
 
@@ -153,37 +206,52 @@ Calcula un hash SHA-256 deterministic d'una representacio JSON canonica:
 ```json
 {"candidates":["Alice","Bob"],"election":"Rector2026","votes":[42,31]}
 ```
-Claus ordenades, sense espais. Garanteix que tots els nodes calculen el mateix hash.
+Claus ordenades, sense espais, UTF-8. Garanteix que tots els nodes calculen el **mateix hash** per al mateix estat.
+
+### Consens K-de-N (`anchoring/consensus.py`)
+
+Verifica localment si almenys K nodes han calculat el mateix hash:
+- Agrupa hashes per valor
+- Identifica nodes d'acord i nodes discrepants
+- Retorna `ConsensusResult` amb `reached`, `consensus_hash`, `agreeing_nodes`, `dissenting_nodes`
+
+### Ethereum Submitter (`anchoring/ethereum_submitter.py`)
+
+Client per enviar hashes al contracte NotaryContract d'Ethereum:
+- Construeix transaccions, les signa amb ECDSA, les envia via JSON-RPC
+- Detecta l'event `ResultAnchored` quan el llindar K s'assoleix al contracte
+- Import lazy de `web3`: no requereix instal·lacio fins que s'usa realment
+
+### Servei d'Ancoratge (`anchoring/anchoring_service.py`)
+
+Orquestra el flux complet per a un node universitari:
+1. `compute_hash(election)` -- llegeix Algorand + calcula SHA-256
+2. `anchor(election, node_hashes)` -- verifica consens + envia a Ethereum si escau
 
 ### Configuracio (`config/`)
 
-`universities.json` defineix les 3 universitats i el llindar K=2. `network_config.py` carrega la configuracio i resol secrets des de variables d'entorn.
-
-### Ethereum (`ethereum/`)
-
-Directori reservat per al contracte de notaria (NotaryContract). Pendent d'implementacio.
+`universities.json` defineix les universitats, credencials (per referencia a env vars) i llindar K.
+`network_config.py` exposa `UniversityNode` amb propietats `algorand_address`, `algorand_private_key` i `ethereum_address`.
 
 ## Variables d'entorn
 
-| Variable | Descripcio |
-|----------|------------|
-| `ALGOD_SERVER` | URL del node Algorand (defecte: `http://localhost`) |
-| `ALGOD_PORT` | Port d'algod (defecte: `4001`) |
-| `ALGOD_TOKEN` | Token d'autenticacio d'algod |
-| `APP_ID` | ID del contracte SistemaVotacion desplegat |
-| `UIB_ALGO_MNEMONIC` | Mnemonic Algorand de la UIB |
-| `UPC_ALGO_MNEMONIC` | Mnemonic Algorand de la UPC |
-| `UAB_ALGO_MNEMONIC` | Mnemonic Algorand de la UAB |
+| Variable | Descripcio | Defecte |
+|----------|------------|---------|
+| `ALGOD_SERVER` | URL del node Algorand | `http://localhost` |
+| `ALGOD_PORT` | Port d'algod | `4001` |
+| `ALGOD_TOKEN` | Token d'autenticacio d'algod | `aaa...a` (64 a) |
+| `APP_ID` | ID del contracte SistemaVotacion desplegat | *(obligatori)* |
+| `ETHEREUM_RPC_URL` | URL JSON-RPC del node Ethereum | `http://localhost:8545` |
+| `NOTARY_CONTRACT_ADDRESS` | Adreca del NotaryContract | *(quan estigui desplegat)* |
+| `{ID}_ALGO_MNEMONIC` | Mnemonic Algorand de la universitat | *(generat per setup)* |
+| `{ID}_ETH_PRIVATE_KEY` | Clau privada Ethereum de la universitat | *(generat per setup)* |
+| `DEPLOYER_MNEMONIC` | Mnemonic de l'administrador del contracte | *(per al registre al cens)* |
 
 ---
 
-## Apendix: Desplegament en xarxa real i propers passos
+## De localnet a Testnet/Mainnet
 
-Aquesta seccio descriu com passar de l'entorn de desenvolupament local (AlgoKit localnet) a un desplegament real sobre Algorand Testnet o Mainnet, i quins passos caldria seguir per convertir el sistema en un servei obert on qualsevol universitat pugui participar.
-
-### De localnet a Testnet/Mainnet
-
-El canvi principal es substituir l'endpoint d'algod. Tot el codi de `anchoring/` i `contracts/` funciona identic sobre qualsevol xarxa Algorand; nomes cal actualitzar les variables d'entorn:
+Tot el codi funciona identic sobre qualsevol xarxa Algorand. Nomes cal actualitzar les variables d'entorn:
 
 | Variable | Localnet | Testnet | Mainnet |
 |----------|----------|---------|---------|
@@ -191,88 +259,18 @@ El canvi principal es substituir l'endpoint d'algod. Tot el codi de `anchoring/`
 | `ALGOD_PORT` | `4001` | `443` | `443` |
 | `ALGOD_TOKEN` | `aaa...aaa` | *(buit o token del proveidor)* | *(token del proveidor)* |
 
-Proveïdors publics d'endpoints Algorand: **Nodely** (algonode.cloud), **AlgoExplorer**, o node propi.
+Proveidors publics d'endpoints Algorand: **Nodely** (algonode.cloud), **AlgoExplorer**, o node propi.
 
-**Passos per desplegar a Testnet:**
+**Desplegar a Testnet:**
 
 ```bash
-# 1. Obtenir ALGO de test (faucet)
-#    https://bank.testnet.algorand.network/
-
+# 1. Obtenir ALGO de test: https://bank.testnet.algorand.network/
 # 2. Configurar .env amb l'endpoint de testnet
-ALGOD_SERVER=https://testnet-api.algonode.cloud
-ALGOD_PORT=443
-ALGOD_TOKEN=
-
-# 3. Desplegar el contracte (identic al proces de localnet)
-cd contracts
-algokit project run build
-python scripts/deploy.py    # → APP_ID real a testnet
-
-# 4. Les universitats configuren el seu .env amb el nou APP_ID
-APP_ID=<app_id_testnet>
-```
-
-A Mainnet el proces es identic pero amb ALGO reals. El cost de desplegament del contracte i de cada transaccio (votar, carregar cens) es cobreix amb ALGO del compte del desplegador.
-
-### Propers passos per a un servei multi-universitat obert
-
-Per transformar el sistema actual en un servei on qualsevol universitat pugui incorporar-se de forma autonoma, caldria abordar els seguents aspectes:
-
-#### 1. Cens obert i autoregistre
-
-Actualment el cens es carrega manualment per l'organitzador (`cargar_censo_global`). Per a un servei obert caldria:
-
-- Afegir un metode `sol·licitar_acces(adreca)` al contracte que registri sol·licituds pendents d'aprovacio.
-- O be adoptar un model de cens public: qualsevol adreca registrada a una autoritat de confianca (ex. LDAP universitari) pot votar sense aprovacio manual.
-- El llindar K del consens hauria de ser configurable dinamicament o governable per les mateixes universitats participants.
-
-#### 2. Descoberta dinamica de participants
-
-Substituir `universities.json` per una lectura dinamica del cens del contracte:
-
-- Llegir les boxes amb prefix `cd` (cens de participants) per descobrir automaticament quines adreces estan registrades.
-- `network_config.py` generaria la llista de nodes a partir de l'estat actual del contracte, sense necessitat de fitxers de configuracio previs.
-
-#### 3. Contracte de notaria Ethereum (capa d'ancoratge)
-
-El directori `network/ethereum/` esta reservat per al `NotaryContract` Solidity que implementa el consens K-de-N:
-
-- Cada universitat envia el seu hash SHA-256 al contracte.
-- Quan K universitats envien el mateix hash, el resultat queda ancorat com a oficial a Ethereum.
-- Caldria desplegar-lo a Ethereum Sepolia (testnet) o Mainnet i actualitzar `ETHEREUM_RPC_URL` i `NOTARY_CONTRACT_ADDRESS` a cada node.
-
-#### 4. Infraestructura de node per universitat
-
-En produccio, cada universitat hauria d'operar el seu propi node Algorand per garantir la independencia de lectura (un node propi no pot ser censurat per tercers):
-
-```
-Universitat X
-├── Node algod propi (sincronitzat amb Mainnet)
-├── Servei anchoring/ (Python, executa en background)
-└── Claus privades en HSM o gestor de secrets (Vault, AWS KMS)
-```
-
-Alternativament, per a institucions petites, es pot usar un endpoint public de confianca (Nodely, etc.) mentre no es diposi de node propi.
-
-#### 5. Identitat i autenticacio institucional
-
-Per garantir que cada node es realment una universitat i no un actor malicious:
-
-- Registrar les adreces Algorand en un smart contract de directori (whitelist governada).
-- Vincular l'adreca Algorand a un certificat X.509 institucional o a un DID (Decentralized Identifier).
-- El llindar K s'hauria d'ajustar a mesura que creix el nombre de participants (ex. K = ceil(2/3 * N) per tolerancia bizantina).
-
-#### Resum de la ruta cap a produccio
-
-```
-Estat actual                Propers passos             Produccio
-──────────────────────────────────────────────────────────────────
-Localnet (AlgoKit)    →    Testnet (Algorand)    →    Mainnet
-3 universitats fixes  →    Cens dinamic          →    N universitats
-JSON hardcoded        →    Lectura des del cens  →    Autoregistre
-Ethereum buit         →    NotaryContract Sepolia→    Ancoratge real
-Claus en .env         →    Gestor de secrets     →    HSM/KMS
+# 3. Compilar i desplegar (identic a localnet)
+cd contracts/
+algokit compile py smart_contracts/voting/contract.py
+poetry run python scripts/deploy.py
+# 4. Actualitzar APP_ID al .env de cada universitat
 ```
 
 ---
@@ -281,28 +279,21 @@ Claus en .env         →    Gestor de secrets     →    HSM/KMS
 
 ### Per que els arguments apareixen en Base64?
 
-Quan un votant executa `votar_eleccion`, Algorand emmagatzema els arguments de la crida ABI com a bytes crus al registre de la transaccio. L'explorador Lora (i qualsevol altre explorador de blocs) mostra aquests bytes en **Base64** perque es el format estandard per representar dades binaries arbitraries en text. No es cap mecanisme de xifrat: es simplement una codificacio de representacio.
+Algorand emmagatzema els arguments de les crides ABI com a bytes crus. L'explorador mostra aquests bytes en **Base64** (codificacio de representacio, no xifrat).
 
-La cadena de codificacio completa es:
+La cadena de codificacio completa:
 
 ```
 "Carol"
-  → ARC-4 (prefixe de longitud 2 bytes)  →  \x00\x05Carol
-  → Base64                                →  AAVDYXJvbA==
-  → Explorador Lora (pestanya "App Args") →  AAVDYXJvbA==
+  --> ARC-4 (prefix de longitud 2 bytes)  -->  \x00\x05Carol
+  --> Base64                              -->  AAVDYXJvbA==
 ```
 
-El primer pas (ARC-4) l'imposa l'estandard ABI d'Algorand: cada argument de tipus `string` porta un prefixe de 2 bytes en big-endian que indica la longitud de la cadena. El segon pas (Base64) el fa l'explorador per poder mostrar qualsevol seqüencia de bytes com a text ASCII.
-
-### Com desxifrar-ho
-
-Per recuperar el valor original cal fer el proces invers: Base64 → bytes crus → saltar els 2 primers bytes (longitud ARC-4) → llegir la resta com a UTF-8.
+### Com descodificar-ho
 
 **Consola del navegador (F12):**
 ```javascript
-// Descodifica i salta els 2 bytes de longitud ARC-4
-atob("AAVDYXJvbA==").slice(2)   // → "Carol"
-atob("ABBSZWN0b3IxNzc1OTg5NjE1").slice(2)  // → "Rector1775989615"
+atob("AAVDYXJvbA==").slice(2)   // --> "Carol"
 ```
 
 **Python:**
@@ -311,25 +302,14 @@ import base64
 
 def arc4_decode(b64: str) -> str:
     raw = base64.b64decode(b64)
-    return raw[2:].decode("utf-8")  # salta els 2 bytes de longitud
+    return raw[2:].decode("utf-8")
 
-print(arc4_decode("AAVDYXJvbA=="))               # → Carol
-print(arc4_decode("ABBSZWN0b3IxNzc1OTg5NjE1"))   # → Rector1775989615
+print(arc4_decode("AAVDYXJvbA=="))  # --> Carol
 ```
-
-**Eina online:** `base64decode.org` → enganxa el valor → ignora els 2 primers caracters del resultat.
 
 ### El primer argument sempre es el selector de metode
 
-Cada crida ABI comenca amb un argument addicional de 4 bytes: el **selector de metode** (hash SHA-512/256 truncat de la signatura del metode). Per exemple:
-
-```
-Fh3Jag==  →  bytes \x16\x1d\xc9\x6a  →  selector de votar_eleccion(string,string)void
-```
-
-Aquest valor no es un argument del votant; es el identificador intern que el router del contracte usa per saber quina funcio executar. Cal ignorar-lo quan es volen llegir els arguments reals.
-
-### Resum dels arguments de votar_eleccion
+Cada crida ABI comenca amb 4 bytes: el **selector de metode** (hash SHA-512/256 truncat de la signatura). Cal ignorar-lo per llegir els arguments reals.
 
 | Posicio | Exemple Base64 | Valor decodificat | Significat |
 |---------|---------------|-------------------|------------|
@@ -339,4 +319,4 @@ Aquest valor no es un argument del votant; es el identificador intern que el rou
 
 ### Privacitat del vot
 
-Els arguments **no estan xifrats**: qualsevol persona que conexi l'adreca Algorand d'un votant pot consultar el seu historial de transaccions i veure exactament per qui ha votat. La privacitat del sistema es basa en el **pseudonimat de les adreces**: si no es coneix a quina persona fisica correspon una adreca, el vot es opac per al public general. L'organitzador electoral, pero, coneix la correspondencia adreca-persona ja que ell mateix ha carregat el cens.
+Els arguments **no estan xifrats**: qualsevol persona que conexi l'adreca Algorand d'un votant pot veure per qui ha votat. La privacitat es basa en el **pseudonimat de les adreces**: si no es coneix a quina persona correspon una adreca, el vot es opac per al public.

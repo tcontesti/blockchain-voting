@@ -14,7 +14,7 @@ Flux:
   FASE 2 - L'usuari #1 proposa l'eleccio "Rector2026"
   FASE 3 - L'usuari #1 carrega el cens de la proposta (tots 8)
   FASE 4 - Usuaris voten la proposta fins assolir majoria
-            → eleccio generada automaticament al contracte
+            --> eleccio generada automaticament al contracte
   FASE 5 - Els 8 usuaris voten a l'eleccio
   FASE 6 - Nodes universitaris llegeixen resultats i calculen hash SHA-256
             (simula l'ancoratge que faria el NotaryContract d'Ethereum)
@@ -66,7 +66,9 @@ from algosdk import mnemonic as algo_mnemonic_module, account, transaction
 from algosdk.v2client.algod import AlgodClient
 
 from anchoring.algorand_reader import AlgorandElectionReader
-from anchoring.hasher import compute_election_hash_hex
+from anchoring.anchoring_service import AnchoringService
+from anchoring.consensus import check_consensus
+from config.network_config import load_universities
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Configuracio
@@ -76,12 +78,30 @@ APP_ID      = int(os.environ["APP_ID"])
 ALGOD_TOKEN = os.environ.get("ALGOD_TOKEN", "a" * 64)
 ALGOD_URL   = f"{os.environ.get('ALGOD_SERVER', 'http://localhost')}:{os.environ.get('ALGOD_PORT', '4001')}"
 
-# Nodes universitaris (validadors, NO votants)
+# Carrega inicial dels nodes (es recarregara dinamicament a fase6)
+UNIVERSITY_NODES, THRESHOLD_K = load_universities()
 UNIVERSITY_MNEMONICS = {
-    "UIB": os.environ["UIB_ALGO_MNEMONIC"],
-    "UPC": os.environ["UPC_ALGO_MNEMONIC"],
-    "UAB": os.environ["UAB_ALGO_MNEMONIC"],
+    node.id.upper(): node.algorand_mnemonic
+    for node in UNIVERSITY_NODES
+    if node.algorand_mnemonic
 }
+
+
+def reload_university_config():
+    """
+    Recarrega la configuracio de universitats des de disc.
+    Permet detectar noves universitats afegides amb add_university.py
+    sense reiniciar el proces.
+    """
+    global UNIVERSITY_NODES, THRESHOLD_K, UNIVERSITY_MNEMONICS
+    # Recarregar .env per capturar noves variables
+    load_dotenv(ROOT_DIR / "network" / ".env", override=True)
+    UNIVERSITY_NODES, THRESHOLD_K = load_universities()
+    UNIVERSITY_MNEMONICS = {
+        node.id.upper(): node.algorand_mnemonic
+        for node in UNIVERSITY_NODES
+        if node.algorand_mnemonic
+    }
 
 import time as _time
 NOM_PROPOSTA = f"Rector{int(_time.time())}"  # Nom unic per evitar conflictes entre execucions
@@ -320,12 +340,27 @@ def fase5_votar_eleccio(usuaris: list[tuple[str, str]]):
 def fase6_ancoratge_universitari():
     """
     Cada node universitari llegeix independentment els resultats del contracte
-    i calcula el hash SHA-256. En un sistema en produccio, cada universitat
-    enviaria aquest hash al NotaryContract d'Ethereum i quan K=2 coincidissin
-    el resultat quedaria ancorat com a oficial.
+    i calcula el hash SHA-256. Despres es verifica el consens K-de-N usant
+    el modul consensus.py. En produccio, cada universitat enviaria el hash
+    al NotaryContract d'Ethereum via ethereum_submitter.py.
     """
     sep("FASE 6: Nodes universitaris validen i calculen el hash")
 
+    # Recarregar config des de disc per detectar universitats afegides en calent
+    reload_university_config()
+    print(f"  Nodes carregats: {len(UNIVERSITY_MNEMONICS)} (K={THRESHOLD_K})")
+
+    # Crear un servei d'ancoratge per a cada universitat
+    services = {}
+    for nom in UNIVERSITY_MNEMONICS:
+        services[nom] = AnchoringService(
+            node_id=nom,
+            algod_client=algod_client(),
+            app_id=APP_ID,
+            threshold_k=THRESHOLD_K,
+        )
+
+    # Mostrar resultats de l'eleccio
     reader = AlgorandElectionReader(algod_client(), APP_ID)
     state = reader.read_election_state(NOM_PROPOSTA)
 
@@ -333,7 +368,6 @@ def fase6_ancoratge_universitari():
         print("  ERROR: no s'ha pogut llegir l'estat")
         return
 
-    # Mostrar resultats
     print(f"\n  Eleccio : {state.election_name}")
     print(f"  Round   : {state.block_round}\n")
 
@@ -344,37 +378,29 @@ def fase6_ancoratge_universitari():
         guany = " ← GUANYADOR" if i == 0 else ""
         print(f"  {cand:<12} {barra:<22} {vots} vots{guany}")
 
-    hash_hex = compute_election_hash_hex(state)
-    print(f"\n  Hash SHA-256 (empremta digital del resultat):")
-    print(f"  {hash_hex}\n")
+    # Cada universitat calcula el hash independentment
+    print(f"\n  Calcul independent del hash per node:")
+    node_hashes = {}
+    for nom, service in services.items():
+        hash_hex = service.compute_hash(NOM_PROPOSTA)
+        if hash_hex:
+            node_hashes[nom] = hash_hex
+            print(f"  {nom}: {hash_hex[:18]}...")
 
-    # Cada universitat llegeix i calcula independentment
-    print("  Validacio per node universitari:")
-    hashes = {}
-    for nom, mn in UNIVERSITY_MNEMONICS.items():
-        # Cada universitat usa el seu propi node algod (aqui tots apunten al mateix localnet)
-        uni_reader = AlgorandElectionReader(algod_client(), APP_ID)
-        uni_state = uni_reader.read_election_state(NOM_PROPOSTA)
-        uni_hash = compute_election_hash_hex(uni_state)
-        hashes[nom] = uni_hash
-        coincideix = "✔ coincideix" if uni_hash == hash_hex else "✗ DISCREPANCIA"
-        print(f"  {nom}: {uni_hash[:18]}... {coincideix}")
+    # Verificar consens K-de-N usant el modul consensus
+    consensus = check_consensus(node_hashes, threshold_k=THRESHOLD_K)
 
-    # Simular consens K-de-N (K=2)
-    hash_counts = {}
-    for h in hashes.values():
-        hash_counts[h] = hash_counts.get(h, 0) + 1
-
-    consens_hash, consens_count = max(hash_counts.items(), key=lambda x: x[1])
-    threshold_k = 2
-
-    print(f"\n  Consens K-de-N (K={threshold_k} de N={len(UNIVERSITY_MNEMONICS)}):")
-    if consens_count >= threshold_k:
-        print(f"  *** CONSENS ASSOLIT ({consens_count}/{len(UNIVERSITY_MNEMONICS)} universitats) ***")
-        print(f"  Hash oficial: {consens_hash}")
-        print(f"  → En produccio: aquest hash s'ancoraria al NotaryContract d'Ethereum")
+    print(f"\n  Consens K-de-N (K={consensus.threshold_k} de N={consensus.total_nodes}):")
+    if consensus.reached:
+        print(f"  *** CONSENS ASSOLIT ({len(consensus.agreeing_nodes)}/{consensus.total_nodes} universitats) ***")
+        print(f"  Hash oficial: {consensus.consensus_hash}")
+        print(f"  Nodes d'acord: {', '.join(consensus.agreeing_nodes)}")
+        if consensus.dissenting_nodes:
+            print(f"  Nodes discrepants: {', '.join(consensus.dissenting_nodes)}")
+        print(f"  --> En produccio: cada node enviaria el hash al NotaryContract d'Ethereum")
+        print(f"    via EthereumSubmitter (ECDSA + Web3.py --> JSON-RPC)")
     else:
-        print(f"  Consens NO assolit ({consens_count}/{threshold_k} requerits)")
+        print(f"  Consens NO assolit ({len(consensus.agreeing_nodes)}/{consensus.threshold_k} requerits)")
 
     print(f"\n  Explora a Lora: http://localhost:5173/localnet/application/{APP_ID}")
 
@@ -414,7 +440,7 @@ def prefase_financar_contracte():
 if __name__ == "__main__":
     print("\nSIMULACIO ELECTORAL - SistemaVotacion")
     print(f"APP_ID: {APP_ID}  |  Eleccio: {NOM_PROPOSTA}")
-    print(f"Usuaris votants: {NUM_USUARIS}  |  Nodes universitaris: {len(UNIVERSITY_MNEMONICS)}")
+    print(f"Usuaris votants: {NUM_USUARIS}  |  Nodes universitaris: {len(UNIVERSITY_MNEMONICS)} (K={THRESHOLD_K})")
 
     try:
         sep("PRE-FASE: Finançar compte del contracte (MBR)")

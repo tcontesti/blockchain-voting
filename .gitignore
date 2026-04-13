@@ -33,6 +33,10 @@ localnet/
 # Docker
 .docker/
 
+# Claude Code
+CLAUDE.md
+.claude/
+
 # IDEs
 .vscode/
 .idea/

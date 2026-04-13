@@ -30,10 +30,12 @@ Referencia: BLOCKCHAIN.pdf §10.1 (Configuracio del cens)
 
 import json
 import logging
+import secrets
 import sys
 from pathlib import Path
 
 from algosdk import account, mnemonic
+from eth_account import Account
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -68,12 +70,17 @@ def main():
         "ALGOD_PORT=4001",
         "ALGOD_TOKEN=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "",
-        "# SMART CONTRACT",
+        "# SMART CONTRACT ALGORAND",
         "APP_ID=",
+        "",
+        "# ETHEREUM (Hardhat localnet o Sepolia)",
+        "ETHEREUM_RPC_URL=http://localhost:8545",
+        "NOTARY_CONTRACT_ADDRESS=",
         "",
     ]
 
     algo_addresses = []
+    eth_addresses = []
 
     for uni in config["universities"]:
         uni_id = uni["id"].upper()
@@ -84,15 +91,23 @@ def main():
         # Convertir la clau privada a frase mnemonica de 25 paraules
         algo_mnemonic = mnemonic.from_private_key(algo_private_key)
 
+        # Generar parell de claus Ethereum (ECDSA)
+        eth_private_key = "0x" + secrets.token_hex(32)
+        eth_account = Account.from_key(eth_private_key)
+        eth_address = eth_account.address
+
         algo_addresses.append(algo_address)
+        eth_addresses.append(eth_address)
 
         logger.info(f"\n{'='*60}")
         logger.info(f"  {uni_name} ({uni_id})")
         logger.info(f"  Algorand: {algo_address}")
+        logger.info(f"  Ethereum: {eth_address}")
 
         env_lines.extend([
             f"# {uni_name}",
             f"{uni['algorand_mnemonic_env']}={algo_mnemonic}",
+            f"{uni.get('ethereum_private_key_env', uni_id + '_ETH_PRIVATE_KEY')}={eth_private_key}",
             "",
         ])
 
@@ -109,6 +124,10 @@ def main():
 
     print("\nAdreces Algorand (per al cens):")
     for uni, addr in zip(config["universities"], algo_addresses):
+        print(f"  {uni['id']}: {addr}")
+
+    print("\nAdreces Ethereum (per a la whitelist del NotaryContract):")
+    for uni, addr in zip(config["universities"], eth_addresses):
         print(f"  {uni['id']}: {addr}")
 
 

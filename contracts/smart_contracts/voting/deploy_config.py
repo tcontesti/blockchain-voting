@@ -13,8 +13,6 @@ TODO: Actualitzar quan es generin els artifacts compilats.
 
 import logging
 
-import algokit_utils
-
 logger = logging.getLogger(__name__)
 
 
@@ -61,7 +59,4 @@ def deploy() -> None:
     #     f"Contracte desplegat: {app_client.app_name} (ID: {app_client.app_id})"
     # )
 
-    logger.warning(
-        "deploy_config.py: Placeholder. "
-        "Compila primer amb 'algokit project run build'."
-    )
+    logger.warning("deploy_config.py: Placeholder. " "Compila primer amb 'algokit project run build'.")

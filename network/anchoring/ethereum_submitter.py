@@ -66,6 +66,7 @@ class SubmissionResult:
                     (el llindar K s'ha assolit amb aquesta submissio).
         error:      Missatge d'error si success es False.
     """
+
     success: bool
     tx_hash: str = ""
     anchored: bool = False
@@ -132,12 +133,14 @@ class EthereumSubmitter:
             tx = self.contract.functions.submitHash(
                 election_id,
                 result_hash,
-            ).build_transaction({
-                "from": self.account.address,
-                "nonce": self.w3.eth.get_transaction_count(self.account.address),
-                "gas": 200_000,
-                "gasPrice": self.w3.eth.gas_price,
-            })
+            ).build_transaction(
+                {
+                    "from": self.account.address,
+                    "nonce": self.w3.eth.get_transaction_count(self.account.address),
+                    "gas": 200_000,
+                    "gasPrice": self.w3.eth.gas_price,
+                }
+            )
 
             # Signar amb ECDSA
             signed_tx = self.w3.eth.account.sign_transaction(tx, self.private_key)

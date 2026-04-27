@@ -39,6 +39,7 @@ class ElectionState:
         block_round:   Round d'Algorand en el qual es va llegir l'estat.
                        Util per a auditoria i verificacio temporal.
     """
+
     election_name: str
     candidates: list[str]
     votes: list[int]

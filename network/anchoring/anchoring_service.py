@@ -20,7 +20,7 @@ from algosdk.v2client.algod import AlgodClient
 from .algorand_reader import AlgorandElectionReader
 from .consensus import ConsensusResult, check_consensus
 from .ethereum_submitter import EthereumSubmitter, SubmissionResult
-from .hasher import compute_election_hash, compute_election_hash_hex
+from .hasher import compute_election_hash_hex
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,7 @@ class AnchoringResult:
         consensus:     Resultat de la verificacio de consens K-de-N.
         submission:    Resultat de l'enviament a Ethereum (None si no s'ha enviat).
     """
+
     election_name: str
     hash_hex: str
     consensus: ConsensusResult
@@ -117,17 +118,11 @@ class AnchoringService:
             result_hash_bytes = bytes.fromhex(consensus.consensus_hash[2:])
             submission = self.submitter.submit_hash(election_name, result_hash_bytes)
             if submission.success:
-                logger.info(
-                    f"[{self.node_id}] Hash enviat a Ethereum: tx={submission.tx_hash[:18]}..."
-                )
+                logger.info(f"[{self.node_id}] Hash enviat a Ethereum: tx={submission.tx_hash[:18]}...")
                 if submission.anchored:
-                    logger.info(
-                        f"[{self.node_id}] RESULTAT ANCORAT a Ethereum per '{election_name}'"
-                    )
+                    logger.info(f"[{self.node_id}] RESULTAT ANCORAT a Ethereum per '{election_name}'")
         elif not consensus.reached:
-            logger.warning(
-                f"[{self.node_id}] Ancoratge no executat: consens no assolit"
-            )
+            logger.warning(f"[{self.node_id}] Ancoratge no executat: consens no assolit")
 
         return AnchoringResult(
             election_name=election_name,

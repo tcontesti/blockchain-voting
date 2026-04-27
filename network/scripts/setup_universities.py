@@ -31,7 +31,6 @@ Referencia: BLOCKCHAIN.pdf §10.1 (Configuracio del cens)
 import json
 import logging
 import secrets
-import sys
 from pathlib import Path
 
 from algosdk import account, mnemonic
@@ -104,12 +103,14 @@ def main():
         logger.info(f"  Algorand: {algo_address}")
         logger.info(f"  Ethereum: {eth_address}")
 
-        env_lines.extend([
-            f"# {uni_name}",
-            f"{uni['algorand_mnemonic_env']}={algo_mnemonic}",
-            f"{uni.get('ethereum_private_key_env', uni_id + '_ETH_PRIVATE_KEY')}={eth_private_key}",
-            "",
-        ])
+        env_lines.extend(
+            [
+                f"# {uni_name}",
+                f"{uni['algorand_mnemonic_env']}={algo_mnemonic}",
+                f"{uni.get('ethereum_private_key_env', uni_id + '_ETH_PRIVATE_KEY')}={eth_private_key}",
+                "",
+            ]
+        )
 
     # Escriure el fitxer .env amb totes les credencials
     env_path = NETWORK_DIR / ".env"

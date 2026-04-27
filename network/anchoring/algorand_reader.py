@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 # Replicats aqui des de contracts/smart_contracts/voting/constants.py
 # per evitar una dependencia directa amb el paquet del contracte.
 P_ELEC_CAND = b"ec"  # Box que emmagatzema els candidats d'una eleccio
-P_ELEC_VOT = b"ev"   # Box que emmagatzema els vots d'una eleccio
+P_ELEC_VOT = b"ev"  # Box que emmagatzema els vots d'una eleccio
 
 
 def _abi_encode_string(s: str) -> bytes:
@@ -109,15 +109,15 @@ def _decode_dynamic_string_array(raw: bytes) -> list[str]:
     offsets = []
     for i in range(num_elements):
         offset_pos = 2 + i * 2
-        offset = struct.unpack(">H", raw[offset_pos:offset_pos + 2])[0]
+        offset = struct.unpack(">H", raw[offset_pos : offset_pos + 2])[0]
         offsets.append(offset)
 
     # Descodificar cada string usant el seu offset
     strings = []
     for offset in offsets:
         abs_offset = 2 + offset  # Offset absolut dins el buffer (post-count)
-        str_len = struct.unpack(">H", raw[abs_offset:abs_offset + 2])[0]
-        str_bytes = raw[abs_offset + 2:abs_offset + 2 + str_len]
+        str_len = struct.unpack(">H", raw[abs_offset : abs_offset + 2])[0]
+        str_bytes = raw[abs_offset + 2 : abs_offset + 2 + str_len]
         strings.append(str_bytes.decode("utf-8"))
 
     return strings
@@ -156,7 +156,7 @@ def _decode_dynamic_uint64_array(raw: bytes) -> list[int]:
     values = []
     for i in range(num_elements):
         pos = 2 + i * 8
-        value = struct.unpack(">Q", raw[pos:pos + 8])[0]
+        value = struct.unpack(">Q", raw[pos : pos + 8])[0]
         values.append(value)
 
     return values
@@ -211,9 +211,7 @@ class AlgorandElectionReader:
             (l'eleccio encara no s'ha creat o el nom es incorrecte).
         """
         try:
-            result = self.algod.application_box_by_name(
-                self.app_id, box_name
-            )
+            result = self.algod.application_box_by_name(self.app_id, box_name)
             return base64.b64decode(result["value"])
         except Exception as e:
             logger.debug(f"Box no trobada: {box_name!r} -> {e}")
@@ -301,10 +299,10 @@ class AlgorandElectionReader:
             # Filtrar nomes les boxes de candidats (prefix "ec")
             if box_name.startswith(P_ELEC_CAND):
                 # La part posterior al prefix es el nom ARC-4: [2 bytes len][UTF-8]
-                suffix = box_name[len(P_ELEC_CAND):]
+                suffix = box_name[len(P_ELEC_CAND) :]
                 if len(suffix) >= 2:
                     str_len = struct.unpack(">H", suffix[0:2])[0]
-                    name = suffix[2:2 + str_len].decode("utf-8")
+                    name = suffix[2 : 2 + str_len].decode("utf-8")
                     election_names.append(name)
 
         return election_names

@@ -110,12 +110,14 @@ def update_json(config: dict, uni_id: str, uni_name: str) -> dict:
     algo_env = f"{uni_id.upper()}_ALGO_MNEMONIC"
     eth_env = f"{uni_id.upper()}_ETH_PRIVATE_KEY"
 
-    config["universities"].append({
-        "id": uni_id,
-        "name": uni_name,
-        "algorand_mnemonic_env": algo_env,
-        "ethereum_private_key_env": eth_env,
-    })
+    config["universities"].append(
+        {
+            "id": uni_id,
+            "name": uni_name,
+            "algorand_mnemonic_env": algo_env,
+            "ethereum_private_key_env": eth_env,
+        }
+    )
 
     # Recalcular K = ceil(2/3 * N)
     n = len(config["universities"])
@@ -157,6 +159,7 @@ def register_in_contract(algo_address: str):
     sys.path.insert(0, str(NETWORK_DIR))
 
     from dotenv import load_dotenv
+
     load_dotenv(ROOT_DIR / ".env")
     load_dotenv(ENV_PATH, override=True)
 
@@ -202,8 +205,10 @@ def register_in_contract(algo_address: str):
         if saldo < 5_000_000:
             sp = algod_client.suggested_params()
             txn = transaction.PaymentTxn(
-                sender=dispenser.address, sp=sp,
-                receiver=deployer_addr, amt=5_000_000,
+                sender=dispenser.address,
+                sp=sp,
+                receiver=deployer_addr,
+                amt=5_000_000,
             )
             stxn = txn.sign(dispenser.private_key)
             algod_client.send_transaction(stxn)
@@ -227,9 +232,7 @@ def register_in_contract(algo_address: str):
     )
     typed = SistemaVotacionClient(app_client)
 
-    typed.send.cargar_censo_global(
-        args=CargarCensoGlobalArgs(direcciones=[algo_address])
-    )
+    typed.send.cargar_censo_global(args=CargarCensoGlobalArgs(direcciones=[algo_address]))
 
     logger.info(f"  Adreca registrada al cens global del contracte (APP_ID={app_id})")
 
@@ -241,7 +244,8 @@ def main():
     parser.add_argument("--id", required=True, help="Identificador curt (ex: 'uv', 'ub')")
     parser.add_argument("--name", required=True, help="Nom complet (ex: 'Universitat de Valencia')")
     parser.add_argument(
-        "--register", action="store_true",
+        "--register",
+        action="store_true",
         help="Registrar l'adreca al cens del contracte Algorand (requereix localnet + APP_ID)",
     )
     args = parser.parse_args()
@@ -263,7 +267,7 @@ def main():
     # 2. Generar claus
     algo_mn, algo_address, eth_private_key, eth_address = generate_keys()
 
-    logger.info(f"\n  Claus generades:")
+    logger.info("\n  Claus generades:")
     logger.info(f"    Algorand: {algo_address}")
     logger.info(f"    Ethereum: {eth_address}")
 
@@ -274,7 +278,7 @@ def main():
     new_n = len(config["universities"])
     new_k = config["threshold_k"]
 
-    logger.info(f"\n  universities.json actualitzat:")
+    logger.info("\n  universities.json actualitzat:")
     logger.info(f"    Universitats: {old_n} → {new_n}")
     logger.info(f"    Llindar K:    {old_k} → {new_k}")
 
@@ -284,18 +288,18 @@ def main():
 
     # 5. Registrar al contracte (opcional)
     if args.register:
-        logger.info(f"\n  Registrant al cens del contracte Algorand...")
+        logger.info("\n  Registrant al cens del contracte Algorand...")
         register_in_contract(algo_address)
     else:
-        logger.info(f"\n  Per registrar al contracte, torna a executar amb --register")
+        logger.info("\n  Per registrar al contracte, torna a executar amb --register")
         logger.info(f"  o crida manualment cargar_censo_global(['{algo_address}'])")
 
     # Resum final
     logger.info(f"\n{'='*60}")
-    logger.info(f"  RESUM")
+    logger.info("  RESUM")
     logger.info(f"{'='*60}")
     logger.info(f"  Xarxa actual: N={new_n} universitats, K={new_k} per consens")
-    logger.info(f"  Nodes:")
+    logger.info("  Nodes:")
     for uni in config["universities"]:
         marker = " ← NOU" if uni["id"] == uni_id else ""
         logger.info(f"    {uni['id'].upper()}: {uni['name']}{marker}")

@@ -36,6 +36,7 @@ class ConsensusResult:
         threshold_k:      Llindar minim requerit (K).
         all_hashes:       Diccionari {node_id: hash_hex} amb tots els hashes.
     """
+
     reached: bool
     consensus_hash: str
     agreeing_nodes: list[str]
@@ -93,10 +94,7 @@ def check_consensus(
             f"(K={threshold_k}) amb hash {best_hash[:18]}..."
         )
     else:
-        logger.warning(
-            f"Consens NO assolit: {len(agreeing)}/{len(node_hashes)} nodes "
-            f"(K={threshold_k} requerits)"
-        )
+        logger.warning(f"Consens NO assolit: {len(agreeing)}/{len(node_hashes)} nodes " f"(K={threshold_k} requerits)")
 
     if dissenting:
         logger.warning(f"Nodes discrepants: {dissenting}")

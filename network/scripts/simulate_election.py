@@ -34,20 +34,21 @@ import sys
 from pathlib import Path
 
 CONTRACTS_DIR = Path(__file__).parent.parent.parent / "contracts"
-ROOT_DIR      = Path(__file__).parent.parent.parent
-NETWORK_DIR   = ROOT_DIR / "network"
+ROOT_DIR = Path(__file__).parent.parent.parent
+NETWORK_DIR = ROOT_DIR / "network"
 
 sys.path.insert(0, str(CONTRACTS_DIR))
 sys.path.insert(0, str(NETWORK_DIR))
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # noqa: E402
+
 load_dotenv(ROOT_DIR / ".env")
 load_dotenv(ROOT_DIR / "network" / ".env", override=True)
 
 try:
-    import algokit_utils
-    from algosdk.atomic_transaction_composer import AccountTransactionSigner
-    from smart_contracts.artifacts.voting.voting_client import (
+    import algokit_utils  # noqa: E402
+    from algosdk.atomic_transaction_composer import AccountTransactionSigner  # noqa: E402
+    from smart_contracts.artifacts.voting.voting_client import (  # noqa: E402
         SistemaVotacionClient,
         CargarCensoGlobalArgs,
         CargarCensoPropuestaArgs,
@@ -62,29 +63,25 @@ except ImportError as e:
     print("  poetry run python ../network/scripts/simulate_election.py")
     sys.exit(1)
 
-from algosdk import mnemonic as algo_mnemonic_module, account, transaction
-from algosdk.v2client.algod import AlgodClient
+from algosdk import mnemonic as algo_mnemonic_module, account, transaction  # noqa: E402
+from algosdk.v2client.algod import AlgodClient  # noqa: E402
 
-from anchoring.algorand_reader import AlgorandElectionReader
-from anchoring.anchoring_service import AnchoringService
-from anchoring.consensus import check_consensus
-from config.network_config import load_universities
+from anchoring.algorand_reader import AlgorandElectionReader  # noqa: E402
+from anchoring.anchoring_service import AnchoringService  # noqa: E402
+from anchoring.consensus import check_consensus  # noqa: E402
+from config.network_config import load_universities  # noqa: E402
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Configuracio
 # ─────────────────────────────────────────────────────────────────────────────
 
-APP_ID      = int(os.environ["APP_ID"])
+APP_ID = int(os.environ["APP_ID"])
 ALGOD_TOKEN = os.environ.get("ALGOD_TOKEN", "a" * 64)
-ALGOD_URL   = f"{os.environ.get('ALGOD_SERVER', 'http://localhost')}:{os.environ.get('ALGOD_PORT', '4001')}"
+ALGOD_URL = f"{os.environ.get('ALGOD_SERVER', 'http://localhost')}:{os.environ.get('ALGOD_PORT', '4001')}"
 
 # Carrega inicial dels nodes (es recarregara dinamicament a fase6)
 UNIVERSITY_NODES, THRESHOLD_K = load_universities()
-UNIVERSITY_MNEMONICS = {
-    node.id.upper(): node.algorand_mnemonic
-    for node in UNIVERSITY_NODES
-    if node.algorand_mnemonic
-}
+UNIVERSITY_MNEMONICS = {node.id.upper(): node.algorand_mnemonic for node in UNIVERSITY_NODES if node.algorand_mnemonic}
 
 
 def reload_university_config():
@@ -98,15 +95,15 @@ def reload_university_config():
     load_dotenv(ROOT_DIR / "network" / ".env", override=True)
     UNIVERSITY_NODES, THRESHOLD_K = load_universities()
     UNIVERSITY_MNEMONICS = {
-        node.id.upper(): node.algorand_mnemonic
-        for node in UNIVERSITY_NODES
-        if node.algorand_mnemonic
+        node.id.upper(): node.algorand_mnemonic for node in UNIVERSITY_NODES if node.algorand_mnemonic
     }
 
-import time as _time
+
+import time as _time  # noqa: E402
+
 NOM_PROPOSTA = f"Rector{int(_time.time())}"  # Nom unic per evitar conflictes entre execucions
-CANDIDATS    = ["Alice", "Bob", "Carol"]
-NUM_USUARIS  = 8
+CANDIDATS = ["Alice", "Bob", "Carol"]
+NUM_USUARIS = 8
 
 # Distribucio de vots a l'eleccio: Alice guanya (4), Bob segon (3), Carol tercer (1)
 VOTS_ELECCIO = ["Alice", "Alice", "Alice", "Alice", "Bob", "Bob", "Bob", "Carol"]
@@ -116,6 +113,7 @@ ARC32_PATH = CONTRACTS_DIR / "smart_contracts" / "artifacts" / "voting" / "Siste
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def sep(titol: str):
     print(f"\n{'='*60}\n  {titol}\n{'='*60}")
@@ -148,8 +146,7 @@ def typed_client(private_key: str, addr: str) -> SistemaVotacionClient:
     return SistemaVotacionClient(app_client)
 
 
-def financar(disp_addr: str, disp_key: str, addr: str, client: AlgodClient,
-             amt: int = 2_000_000):
+def financar(disp_addr: str, disp_key: str, addr: str, client: AlgodClient, amt: int = 2_000_000):
     """
     Envia ALGO des del dispenser a una adreça si no te prou saldo.
 
@@ -173,6 +170,7 @@ def financar(disp_addr: str, disp_key: str, addr: str, client: AlgodClient,
 # Fases
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def fase0_generar_usuaris() -> list[tuple[str, str]]:
     """
     Genera 8 comptes d'usuari nous i els finança des del dispenser de localnet.
@@ -191,7 +189,7 @@ def fase0_generar_usuaris() -> list[tuple[str, str]]:
     try:
         dispenser = algorand.account.localnet_dispenser()
         disp_addr = dispenser.address
-        disp_key   = dispenser.private_key
+        disp_key = dispenser.private_key
     except Exception:
         # Fallback: usa DEPLOYER_MNEMONIC si localnet_dispenser no esta disponible
         deployer_mn = os.environ.get("DEPLOYER_MNEMONIC", "")
@@ -242,15 +240,11 @@ def fase1_carregar_cens(usuaris: list[tuple[str, str]]):
     adreces = [addr for addr, _ in usuaris]
 
     # Lot 1: primers 7 usuaris
-    client.send.cargar_censo_global(
-        args=CargarCensoGlobalArgs(direcciones=adreces[:7])
-    )
+    client.send.cargar_censo_global(args=CargarCensoGlobalArgs(direcciones=adreces[:7]))
     print(f"  Lot 1: {len(adreces[:7])} usuaris carregats")
 
     # Lot 2: l'usuari restant
-    client.send.cargar_censo_global(
-        args=CargarCensoGlobalArgs(direcciones=adreces[7:])
-    )
+    client.send.cargar_censo_global(args=CargarCensoGlobalArgs(direcciones=adreces[7:]))
     print(f"  Lot 2: {len(adreces[7:])} usuari carregat")
     print(f"  Total al cens global: {NUM_USUARIS} usuaris")
 
@@ -287,7 +281,7 @@ def fase3_carregar_cens_proposta(usuaris: list[tuple[str, str]]):
     adreces = [addr for addr, _ in usuaris]
 
     # El contracte permet max 4 adreces per crida a cargar_censo_propuesta
-    lots = [adreces[i:i+4] for i in range(0, len(adreces), 4)]
+    lots = [adreces[i : i + 4] for i in range(0, len(adreces), 4)]
     for idx, lot in enumerate(lots):
         client.send.cargar_censo_propuesta(
             args=CargarCensoPropuestaArgs(
@@ -310,9 +304,7 @@ def fase4_votar_proposta(usuaris: list[tuple[str, str]]):
     reader = AlgorandElectionReader(algod_client(), APP_ID)
 
     for i, (addr, key) in enumerate(usuaris):
-        typed_client(key, addr).send.votar_propuesta(
-            args=VotarPropuestaArgs(nombre_propuesta=NOM_PROPOSTA)
-        )
+        typed_client(key, addr).send.votar_propuesta(args=VotarPropuestaArgs(nombre_propuesta=NOM_PROPOSTA))
         print(f"  Usuari #{i+1} ha votat la proposta")
 
         if NOM_PROPOSTA in reader.get_all_election_names():
@@ -379,7 +371,7 @@ def fase6_ancoratge_universitari():
         print(f"  {cand:<12} {barra:<22} {vots} vots{guany}")
 
     # Cada universitat calcula el hash independentment
-    print(f"\n  Calcul independent del hash per node:")
+    print("\n  Calcul independent del hash per node:")
     node_hashes = {}
     for nom, service in services.items():
         hash_hex = service.compute_hash(NOM_PROPOSTA)
@@ -397,8 +389,8 @@ def fase6_ancoratge_universitari():
         print(f"  Nodes d'acord: {', '.join(consensus.agreeing_nodes)}")
         if consensus.dissenting_nodes:
             print(f"  Nodes discrepants: {', '.join(consensus.dissenting_nodes)}")
-        print(f"  --> En produccio: cada node enviaria el hash al NotaryContract d'Ethereum")
-        print(f"    via EthereumSubmitter (ECDSA + Web3.py --> JSON-RPC)")
+        print("  --> En produccio: cada node enviaria el hash al NotaryContract d'Ethereum")
+        print("    via EthereumSubmitter (ECDSA + Web3.py --> JSON-RPC)")
     else:
         print(f"  Consens NO assolit ({len(consensus.agreeing_nodes)}/{consensus.threshold_k} requerits)")
 
@@ -408,6 +400,7 @@ def fase6_ancoratge_universitari():
 # ─────────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def prefase_financar_contracte():
     """
@@ -456,5 +449,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n  ERROR: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

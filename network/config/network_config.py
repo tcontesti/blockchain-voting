@@ -44,6 +44,7 @@ class UniversityNode:
         ethereum_private_key: Clau privada Ethereum (hex) per signar transaccions
                               d'ancoratge. Buida si no s'ha configurat.
     """
+
     id: str
     name: str
     algorand_mnemonic: str
@@ -61,6 +62,7 @@ class UniversityNode:
             ValueError: Si el mnemonic es buit o invalid.
         """
         from algosdk import mnemonic
+
         return mnemonic.to_public_key(self.algorand_mnemonic)
 
     @property
@@ -75,6 +77,7 @@ class UniversityNode:
             ValueError: Si el mnemonic es buit o invalid.
         """
         from algosdk import mnemonic
+
         return mnemonic.to_private_key(self.algorand_mnemonic)
 
     @property
@@ -89,6 +92,7 @@ class UniversityNode:
             ValueError: Si la clau privada es buida.
         """
         from eth_account import Account
+
         return Account.from_key(self.ethereum_private_key).address
 
 
@@ -134,12 +138,14 @@ def load_universities() -> tuple[list[UniversityNode], int]:
         algo_mnemonic = os.environ.get(uni["algorand_mnemonic_env"], "")
         eth_private_key = os.environ.get(uni.get("ethereum_private_key_env", ""), "")
 
-        nodes.append(UniversityNode(
-            id=uni["id"],
-            name=uni["name"],
-            algorand_mnemonic=algo_mnemonic,
-            ethereum_private_key=eth_private_key,
-        ))
+        nodes.append(
+            UniversityNode(
+                id=uni["id"],
+                name=uni["name"],
+                algorand_mnemonic=algo_mnemonic,
+                ethereum_private_key=eth_private_key,
+            )
+        )
 
     return nodes, threshold_k
 

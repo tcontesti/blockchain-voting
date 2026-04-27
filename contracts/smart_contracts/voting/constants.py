@@ -16,20 +16,20 @@ from typing import Final
 # ==========================================================
 
 # Cens electoral
-P_CENSO_DIR: Final[bytes] = b"cd"        # (eleccio, adreca) -> bool
-P_CENSO_TOT: Final[bytes] = b"ct"        # eleccio -> total persones
+P_CENSO_DIR: Final[bytes] = b"cd"  # (eleccio, adreca) -> bool
+P_CENSO_TOT: Final[bytes] = b"ct"  # eleccio -> total persones
 
 # Propostes d'eleccions
-P_PROP_CAND: Final[bytes] = b"pc"        # proposta -> candidats[]
-P_PROP_VOT: Final[bytes] = b"pv"         # proposta -> total vots a favor
-P_PROP_REG: Final[bytes] = b"pr"         # (proposta, adreca) -> ha votat?
+P_PROP_CAND: Final[bytes] = b"pc"  # proposta -> candidats[]
+P_PROP_VOT: Final[bytes] = b"pv"  # proposta -> total vots a favor
+P_PROP_REG: Final[bytes] = b"pr"  # (proposta, adreca) -> ha votat?
 P_PROP_CENSO_CARG: Final[bytes] = b"pg"  # proposta -> adreces carregades al cens
-P_PROP_CRADOR: Final[bytes] = b"pk"      # proposta -> adreca del creador
+P_PROP_CRADOR: Final[bytes] = b"pk"  # proposta -> adreca del creador
 
 # Eleccions actives
-P_ELEC_CAND: Final[bytes] = b"ec"        # eleccio -> candidats[]
-P_ELEC_VOT: Final[bytes] = b"ev"         # eleccio -> vots[] (DynamicArray indexat per candidat)
-P_ELEC_REG: Final[bytes] = b"er"         # (eleccio, adreca) -> ha votat?
+P_ELEC_CAND: Final[bytes] = b"ec"  # eleccio -> candidats[]
+P_ELEC_VOT: Final[bytes] = b"ev"  # eleccio -> vots[] (DynamicArray indexat per candidat)
+P_ELEC_REG: Final[bytes] = b"er"  # (eleccio, adreca) -> ha votat?
 
 # ==========================================================
 # CONSTANTS GLOBALS

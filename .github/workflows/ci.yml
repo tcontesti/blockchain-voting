@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # Job 1: Python lint — flake8 + black
+  # Covers: contracts/smart_contracts, contracts/tests,
+  #         network/anchoring, network/config, network/scripts
+  # ─────────────────────────────────────────────────────────────
+  lint-python:
+    name: Lint Python (flake8 + black)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install linters
+        run: pip install flake8 black
+
+      - name: black --check
+        run: |
+          black --check --line-length 120 \
+            contracts/smart_contracts \
+            contracts/tests \
+            network/anchoring \
+            network/config \
+            network/scripts
+
+      - name: flake8
+        run: |
+          flake8 \
+            contracts/smart_contracts \
+            contracts/tests \
+            network/anchoring \
+            network/config \
+            network/scripts \
+            --max-line-length=120 \
+            --extend-ignore=E203,W503
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 2: Frontend lint — TypeScript type check
+  # eslint config not yet added; tsc --noEmit catches type errors.
+  # ─────────────────────────────────────────────────────────────
+  lint-frontend:
+    name: Lint Frontend (tsc)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: client
+        run: bun install --frozen-lockfile
+
+      - name: TypeScript check
+        working-directory: client
+        run: bunx tsc --noEmit
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 3: Smart contract tests
+  # Runs the 17 autonomous network integration tests (no localnet
+  # needed). The pytest suite requires localnet + compiled
+  # artifacts and is skipped in CI until #24 is implemented.
+  # ─────────────────────────────────────────────────────────────
+  test-contracts:
+    name: Test Contracts (integration)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install algosdk python-dotenv
+
+      - name: Run autonomous integration tests
+        working-directory: network
+        run: python test_integration.py
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 4: Frontend build
+  # vitest not yet configured; build smoke-test catches broken
+  # imports and TypeScript compilation errors.
+  # ─────────────────────────────────────────────────────────────
+  test-frontend:
+    name: Test Frontend (build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: client
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        working-directory: client
+        run: bun run build
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 5: Solidity tests (Hardhat)
+  # NotaryContract not yet implemented (issue #20).
+  # This job will be wired up when network/ethereum/ is ready.
+  # ─────────────────────────────────────────────────────────────
+  test-solidity:
+    name: Test Solidity (Hardhat)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pending — NotaryContract not yet implemented
+        run: echo "Hardhat tests will run here once issue #20 is complete."
